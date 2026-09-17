@@ -1,0 +1,18 @@
+# ---- secrets: the Gmail app password lives here, never commit it ----
+.env
+*.env
+!server/.env.example
+
+# ---- dependencies: Render installs these itself ----
+node_modules/
+
+# ---- local backups / scratch copies: not part of the site ----
+*.bak
+*.bak-*
+index.html.bak-*
+index - Copy.html
+*.log
+
+# ---- OS noise ----
+Thumbs.db
+.DS_Store

@@ -1,0 +1,2270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sriraman Rangarajan — Implementation Lead</title>
+<meta name="description" content="Portfolio of Sriraman Rangarajan, Software Implementation Lead — ERP, Retail POS and WMS deployment, UAT, go-live support and user training.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="apple-touch-icon" href="favicon.svg">
+<style>
+  /* ==========================================================
+     SOFT UI TOKENS
+     Soft rounded cards, diffuse shadows, gradient accents.
+     Change --grad-main here and the whole site follows.
+     ========================================================== */
+  :root{
+    --bg:#e9f6f5;              /* page background behind the cards */
+    --sheet:#ffffff;           /* card surface                     */
+    --sunken:#f1faf9;          /* inset areas inside a card        */
+    --line:#d5eae8;
+    --ink:#0f4c4a;             /* headings — deep teal             */
+    --ink-2:#3f7a77;           /* body copy                        */
+    --ink-3:#59908d;           /* small muted labels               */
+
+    --grad-main:linear-gradient(310deg,#0f766e,#4fd1c5);
+    --grad-dark:linear-gradient(310deg,#0a4a45,#0f766e);
+    --grad-good:linear-gradient(310deg,#17ad37,#98ec2d);
+    --accent:#0d7a70;
+    --accent-soft:#d8f2ef;
+    --on-grad:#ffffff;
+    --nav-ink:#062f2c;         /* menu text — near black teal in light mode */
+    --tip-bg:#0f4c4a;          /* tooltip bubble — inverts per theme so it   */
+    --tip-ink:#ffffff;         /* never ends up light-on-light               */
+    --nav-hover:rgba(255,255,255,.34);
+
+    --r-lg:16px;               /* cards      */
+    --r-md:12px;               /* inner tiles */
+    --r-sm:8px;                /* buttons, inputs */
+    --shadow:0 20px 27px 0 rgba(15,76,74,.07);
+    --shadow-sm:0 4px 7px -1px rgba(15,76,74,.12), 0 2px 4px -1px rgba(15,76,74,.07);
+    --shadow-lg:0 20px 30px 0 rgba(15,76,74,.15);
+
+    /* how photo.jpg is cropped inside the round frame on the flip card.
+       zoom 1 = whole picture; raise it to close in. x/y shift the picture
+       behind the circle, so more negative = moves right / down out of view. */
+    --photo-pos:60% 31%;      /* framing of the full-bleed photo on the card front */
+    --photo-zoom:1.8;
+    --photo-x:-58%;
+    --photo-y:-6%;
+
+    --pad:clamp(20px,3.4vw,44px);
+    --gap:clamp(12px,1.4vw,20px);
+    --sans:"Open Sans","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --black:var(--sans);
+  }
+  :root[data-theme="dark"]{
+    --bg:#041a19;
+    --sheet:#0a2b29;
+    --sunken:#072220;
+    --line:#14514c;
+    --ink:#e6fffb;
+    --ink-2:#a8d5d0;
+    --ink-3:#85b8b3;
+    --accent:#4fd1c5;              /* lighter teal so links stay readable on dark */
+    --accent-soft:#0d3f3a;
+    --nav-ink:#ffffff;         /* menu text — white in dark mode */
+    --tip-bg:#e6fffb;
+    --tip-ink:#04211f;
+    --nav-hover:rgba(255,255,255,.16);
+    --shadow:0 20px 27px 0 rgba(0,0,0,.35);
+    --shadow-sm:0 4px 7px -1px rgba(0,0,0,.4), 0 2px 4px -1px rgba(0,0,0,.3);
+    --shadow-lg:0 20px 30px 0 rgba(0,0,0,.5);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#041a19;
+      --sheet:#0a2b29;
+      --sunken:#072220;
+      --line:#14514c;
+      --ink:#e6fffb;
+      --ink-2:#a8d5d0;
+      --ink-3:#85b8b3;
+      --accent:#4fd1c5;              /* lighter teal so links stay readable on dark */
+      --accent-soft:#0d3f3a;
+      --nav-ink:#ffffff;
+      --tip-bg:#e6fffb;
+      --tip-ink:#04211f;
+      --nav-hover:rgba(255,255,255,.16);
+      --shadow:0 20px 27px 0 rgba(0,0,0,.35);
+      --shadow-sm:0 4px 7px -1px rgba(0,0,0,.4), 0 2px 4px -1px rgba(0,0,0,.3);
+      --shadow-lg:0 20px 30px 0 rgba(0,0,0,.5);
+    }
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth;scroll-padding-top:84px}
+  body{
+    font-family:var(--sans);
+    background:var(--bg);
+    color:var(--ink-2);
+    line-height:1.6;
+    font-size:15px;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit;text-decoration:none}
+  h1,h2,h3,.heavy{font-family:var(--sans);font-weight:700;letter-spacing:-.01em;line-height:1.2;color:var(--ink)}
+
+  /* ==========================================================
+     TOP BAR  â€”  floating translucent card
+     ========================================================== */
+  header.nav{
+    position:sticky;top:0;z-index:60;padding:10px var(--gap) 0;
+  }
+  .nav-inner{
+    width:100%;height:74px;padding:0 14px 0 10px;
+    display:flex;align-items:center;gap:12px;flex-wrap:nowrap;
+    background:color-mix(in srgb, var(--sheet) 82%, transparent);
+    -webkit-backdrop-filter:saturate(200%) blur(20px);
+    backdrop-filter:saturate(200%) blur(20px);
+    border-radius:var(--r-lg);
+    box-shadow:var(--shadow);
+  }
+  .nav-brand{
+    font-weight:700;font-size:14.5px;color:var(--ink);letter-spacing:-.01em;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;
+  }
+  .nav-brand em{font-style:normal;font-weight:400;color:var(--ink-3)}
+  /* ---- glass pill menu — adapted from Uiverse.io by mymiamo ---- */
+  .nav-links{
+    position:relative;
+    display:flex;gap:5px;margin-left:auto;flex-wrap:nowrap;flex:0 1 auto;min-width:0;
+    padding:6px;border-radius:99rem;
+    background:rgba(13,122,112,.42);
+    -webkit-backdrop-filter:blur(12px) saturate(180%);
+    backdrop-filter:blur(12px) saturate(180%);
+    border:1px solid rgba(255,255,255,.35);
+    box-shadow:0 10px 30px rgba(13,122,112,.20);
+    overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;
+  }
+  .nav-links::-webkit-scrollbar{display:none}
+  .nav-links::after{
+    content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    box-shadow:
+      inset 2px 2px 5px -2px rgba(255,255,255,.45),
+      inset -2px -2px 5px 2px rgba(255,255,255,.45),
+      inset 0 -2px 0 rgba(255,255,255,.25);
+  }
+  .nav-links a{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    flex:1 1 0;min-width:0;padding:7px 12px;border-radius:99rem;
+    font-size:11.5px;font-weight:700;line-height:1;color:var(--nav-ink);
+    white-space:nowrap;-webkit-tap-highlight-color:transparent;
+    transition:background .18s ease, color .18s ease, transform .18s ease, box-shadow .3s ease;
+  }
+  .nav-links a svg{width:19px;height:19px;flex:none}
+  .nav-links a span{margin-top:5px}
+  .nav-links a:hover{
+    background:var(--nav-hover);color:var(--nav-ink);
+    box-shadow:
+      inset 2px 2px 5px -2px rgba(255,255,255,.45),
+      inset -2px -1px 5px 0 rgba(255,255,255,.45),
+      inset 0 -2px 0 rgba(255,255,255,.25);
+  }
+  .nav-links a.active{
+    background:rgba(255,255,255,.88);color:var(--accent);
+    box-shadow:inset 2px 2px 5px -2px rgba(255,255,255,.6), 0 2px 6px rgba(0,0,0,.07);
+  }
+  .nav-links a:active{transform:scale(.97)}
+  @media (max-width:1300px){ .nav-brand em{display:none} }
+
+  .nav-tools{display:flex;align-items:center;gap:8px;flex:none}
+  .nav-home{position:relative;display:flex;flex:none;margin-right:2px}
+  .nav-home .tooltip{left:0;transform:none}
+  .nav-home .tooltip::before{left:12px}
+
+  /* round icon buttons */
+  .Btn{
+    width:38px;height:38px;flex:none;border:0;border-radius:50%;
+    background:var(--sheet);box-shadow:var(--shadow-sm);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    cursor:pointer;position:relative;transition:.25s;
+  }
+  .Btn:hover{background-image:var(--grad-main);box-shadow:var(--shadow-lg);transform:translateY(-2px)}
+  .svgIcon{fill:var(--ink-2);transition:.25s}
+  .btn-ico{display:grid;place-items:center;color:var(--ink-2);transition:.25s}
+  .Btn:hover .svgIcon,.Btn:hover .btn-ico{fill:var(--on-grad);color:var(--on-grad)}
+  .Btn.on{background-image:var(--grad-main)}
+  .Btn.on .btn-ico{color:var(--on-grad)}
+  .icon2{
+    width:14px;height:4px;margin-top:2px;transition:.25s;
+    border-bottom:2px solid var(--ink-2);
+    border-left:2px solid var(--ink-2);
+    border-right:2px solid var(--ink-2);
+  }
+  .Btn:hover .icon2{
+    border-bottom-color:var(--on-grad);
+    border-left-color:var(--on-grad);
+    border-right-color:var(--on-grad);
+  }
+  .Btn:hover .svgIcon{animation:slide-in-top .6s cubic-bezier(.25,.46,.45,.94) both}
+  @keyframes slide-in-top{
+    0%   { transform:translateY(-10px); opacity:0 }
+    100% { transform:translateY(0px);   opacity:1 }
+  }
+  .tooltip{
+    position:absolute;top:48px;left:50%;transform:translateX(-50%);
+    opacity:0;background:var(--tip-bg);color:var(--tip-ink);
+    padding:6px 11px;border-radius:var(--r-sm);white-space:nowrap;
+    font-family:var(--sans);font-size:12px;font-weight:600;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:var(--shadow-sm);transition:.2s;pointer-events:none;
+  }
+  .tooltip::before{
+    position:absolute;content:"";width:9px;height:9px;background:var(--tip-bg);
+    transform:rotate(45deg);top:-4px;left:calc(50% - 4.5px);
+  }
+  .Btn:hover .tooltip{opacity:1}
+  .nav-toggle{display:none}
+
+  /* ---- links collapse into a drop-down panel ---- */
+  @media (max-width:1140px){
+    .nav-inner{height:60px}
+    .nav-toggle{display:flex}
+    .nav-links{
+      position:absolute;top:74px;left:0;right:0;margin:0;
+      flex-direction:column;gap:2px;padding:10px;
+      background:var(--sheet);border:0;border-radius:var(--r-lg);
+      box-shadow:var(--shadow-lg);
+      -webkit-backdrop-filter:none;backdrop-filter:none;
+      display:none;overflow-x:hidden;overflow-y:auto;max-height:calc(100vh - 94px);
+    }
+    .nav-links::after{display:none}
+    .nav.open .nav-links{display:flex}
+    .nav-links a{
+      flex-direction:row;align-items:center;justify-content:flex-start;gap:12px;
+      font-size:15px;padding:12px 16px;border-radius:var(--r-sm);color:var(--ink-2);
+    }
+    .nav-links a span{margin-top:0}
+    .nav-links a svg{width:20px;height:20px}
+    .nav-links a:hover{background:var(--sunken);color:var(--ink);box-shadow:none}
+    .nav-links a.active{background:var(--accent-soft);color:var(--accent);box-shadow:none}
+  }
+
+  /* ==========================================================
+     CARDS
+     ========================================================== */
+  .stack{
+    width:100%;margin:0;padding:var(--gap);
+    display:flex;flex-direction:column;gap:var(--gap);
+  }
+  .sheet{
+    background:var(--sheet);border-radius:var(--r-lg);
+    box-shadow:var(--shadow);overflow:hidden;position:relative;
+  }
+  .pad{padding:var(--pad)}
+  /* an inset, slightly sunken area inside a card */
+  .panel{background:var(--sunken)}
+
+  /* ==========================================================
+     COVER
+     ========================================================== */
+  .cover{
+    background-image:var(--grad-main);color:#fff;
+    overflow:visible;z-index:5;   /* let the share drop-down escape the card */
+    min-height:min(19vh,150px);display:flex;flex-direction:column;
+  }
+  .cover h1,.cover .who{color:#fff}
+  .cover-body{
+    flex:1;padding:var(--pad);display:flex;flex-direction:column;
+    justify-content:flex-end;align-items:flex-end;text-align:right;
+  }
+  .cover h1{font-size:clamp(30px,5vw,56px);line-height:1;letter-spacing:-.02em;white-space:nowrap;font-weight:700}
+  .cover-kicker{
+    font-size:clamp(11.5px,1.4vw,13.5px);font-weight:700;
+    letter-spacing:.01em;margin-bottom:auto;
+    color:rgba(255,255,255,.82);
+  }
+  .cover-strip{
+    background:var(--sheet);padding:clamp(12px,1.5vw,17px) var(--pad);
+    display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap;
+    border-radius:0 0 var(--r-lg) var(--r-lg);  /* cover is overflow:visible now */
+  }
+  .cover-strip .who{font-weight:700;font-size:clamp(19px,2.8vw,28px);color:var(--ink)}
+  /* left column: name with the role line directly beneath it */
+  .strip-left{display:flex;flex-direction:column;align-items:flex-start;gap:5px}
+  /* right column: social links stacked above the icon toolbar */
+  .strip-right{display:flex;flex-direction:column;align-items:flex-end;gap:9px}
+  .strip-right .socials{gap:clamp(12px,1.8vw,22px);justify-content:flex-end}
+  .strip-tools{display:flex;align-items:center;gap:8px}
+  .cover-strip .what{
+    font-size:12.5px;font-weight:700;letter-spacing:.01em;
+    color:var(--ink-3);text-align:left;
+  }
+
+  /* ==========================================================
+     SECTION HEADINGS
+     ========================================================== */
+  .sec-title{
+    padding:var(--pad) var(--pad) clamp(14px,1.8vw,20px);
+    display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;
+  }
+  .sec-title h2{font-size:clamp(21px,2.7vw,30px);font-weight:700}
+  .sec-no{
+    font-size:11px;font-weight:700;letter-spacing:.12em;
+    background-image:var(--grad-main);color:var(--on-grad);
+    padding:6px 12px;border-radius:999px;white-space:nowrap;box-shadow:var(--shadow-sm);
+  }
+  .sec-title.panel{background-image:var(--grad-dark)}
+  .sec-title.panel h2{color:#fff}
+  .lede{font-size:15px;color:var(--ink-2);max-width:70ch;padding:0 var(--pad) clamp(16px,2vw,24px)}
+
+  /* ==========================================================
+     ABOUT
+     ========================================================== */
+  #about .pad{padding-top:clamp(22px,2.6vw,34px)}
+  .about-top{display:flex;gap:clamp(20px,3.4vw,42px);align-items:flex-start;flex-wrap:wrap}
+  .about-copy{flex:1 1 340px;min-width:280px}
+  /* ---- profile flip card — adapted from Uiverse.io by aadium ---- */
+  .flip-card{
+    flex:0 0 auto;background:transparent;
+    width:clamp(215px,24vw,250px);height:clamp(258px,29vw,292px);
+    perspective:1000px;cursor:pointer;
+  }
+  .flip-card-inner{
+    position:relative;width:100%;height:100%;text-align:center;
+    transition:transform .65s cubic-bezier(.2,.7,.3,1);
+    transform-style:preserve-3d;
+  }
+  .flip-card:hover .flip-card-inner,
+  .flip-card:focus-within .flip-card-inner,
+  .flip-card.flipped .flip-card-inner{transform:rotateY(180deg)}
+  .flip-card-front,.flip-card-back{
+    position:absolute;inset:0;padding:18px 16px;border-radius:2em;
+    -webkit-backface-visibility:hidden;backface-visibility:hidden;
+    background-image:var(--grad-main);color:#fff;
+    box-shadow:var(--shadow);
+    display:flex;flex-direction:column;align-items:center;
+  }
+  .flip-card-back{transform:rotateY(180deg);justify-content:center;gap:14px;padding:20px 18px}
+  /* the front is the photo and nothing else — it bleeds to every edge */
+  .flip-card-front{padding:0;overflow:hidden}
+  .flip-card-front .pfp{
+    width:100%;height:100%;margin:0;border:0;border-radius:inherit;background:none;
+  }
+  .flip-card-front .pfp img{
+    inset:0;left:0;top:0;width:100%;height:100%;
+    object-fit:cover;object-position:var(--photo-pos);
+  }
+  .pfp{
+    width:118px;height:118px;margin-top:6px;flex:none;position:relative;
+    border-radius:50%;overflow:hidden;display:grid;place-items:center;
+    background:rgba(255,255,255,.18);border:4px solid rgba(255,255,255,.55);
+  }
+  /* photo.jpg is a wide scene rather than a head-and-shoulders shot, so it is
+     zoomed and offset to bring the face into the middle of the circle.
+     Tune with the three --photo-* values in :root — zoom 1 = no crop. */
+  .pfp img{
+    position:absolute;display:block;object-fit:cover;
+    width:calc(100% * var(--photo-zoom));
+    height:calc(100% * var(--photo-zoom));
+    left:var(--photo-x);
+    top:var(--photo-y);
+  }
+  .pfp img[hidden]{display:none}
+  .pfp .initials{font-size:40px;font-weight:800;color:#fff;letter-spacing:-.02em}
+  .back-title{font-size:15px;font-weight:700;color:#fff}
+  .description{font-size:13px;line-height:1.6;color:rgba(255,255,255,.92);letter-spacing:.2px}
+  .socialbar{display:flex;justify-content:center;gap:13px}
+  .socialbar a{
+    width:38px;height:38px;border-radius:50%;display:grid;place-items:center;
+    background:rgba(255,255,255,.16);color:#fff;transition:.4s;
+  }
+  .socialbar a:hover{background:#fff;color:var(--accent);transform:translateY(-3px)}
+  h3.blk{font-size:clamp(20px,2.5vw,26px);margin-bottom:4px;font-weight:700}
+  .subrole{font-size:14px;font-weight:600;color:var(--accent);margin-bottom:14px}
+  .body-copy{font-size:15px;color:var(--ink-2);max-width:72ch}
+
+  .stat-band{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(min(170px,100%),1fr));
+    gap:var(--gap);margin-top:clamp(24px,3vw,34px);
+  }
+  .stat{
+    background:var(--sunken);border-radius:var(--r-md);padding:18px 20px;
+    transition:.25s;
+  }
+  .stat:hover{box-shadow:var(--shadow-sm);transform:translateY(-2px)}
+  /* ---- holographic stat numbers — adapted from Uiverse.io by Thomas-Cabrit ----
+     A dark tile holding a hollow neon figure, drawn three times at different
+     depths and wobbling slowly in 3D. */
+  .stat{perspective:900px}
+  /* The hover effect gives every .stat-band child transform-style:preserve-3d.
+     That would put the card's own flat background and the rotating tile inside
+     it in the SAME 3D space, where the two planes intersect and slice the tile
+     diagonally. Flattening here keeps the tile's depth self-contained.
+     (0,2,0 beats the 0,1,0 of `.stat-band > *`, so order doesn't matter.) */
+  .stat-band .stat{transform-style:flat}
+  .stat b.holo{
+    position:relative;display:block;width:100%;
+    height:clamp(86px,9.2vw,112px);
+    border-radius:22px;
+    background:linear-gradient(158deg,#0b2f2c 0%,#04191a 58%,#082825 100%);
+    border:1px solid rgba(79,209,197,.30);
+    box-shadow:inset 0 0 44px rgba(79,209,197,.15), 0 12px 26px rgba(4,26,25,.28);
+    transform-style:preserve-3d;
+    animation:holo-wobble 6.2s ease-in-out infinite;
+    will-change:transform;
+  }
+  /* stagger them so the row doesn't move in lockstep */
+  .stat:nth-child(2) b.holo{animation-delay:-1.6s}
+  .stat:nth-child(3) b.holo{animation-delay:-3.1s}
+  .stat:nth-child(4) b.holo{animation-delay:-4.7s}
+  /* a wide tile needs a gentler tilt than the original 140px square,
+     or the far edge swings too deep and the perspective distorts */
+  @keyframes holo-wobble{
+    0%,100%{transform:rotateX(5deg) rotateY(-8deg)}
+    50%    {transform:rotateX(6deg) rotateY(8deg)}
+  }
+  /* hollow neon figure — stroke only, no fill */
+  .holo-l{
+    position:absolute;inset:0;display:grid;place-items:center;
+    font-size:clamp(38px,4.4vw,54px);font-weight:800;
+    letter-spacing:-.02em;line-height:1;white-space:nowrap;
+    color:transparent;-webkit-text-fill-color:transparent;
+    -webkit-text-stroke:1.3px rgba(79,209,197,.92);
+    transform-style:preserve-3d;pointer-events:none;
+  }
+  .holo-back{
+    opacity:.22;filter:blur(1.6px);transform:translateZ(-22px);
+    -webkit-text-stroke:1.3px rgba(79,209,197,.48);
+  }
+  .holo-mid{
+    opacity:.50;filter:blur(.6px);transform:translateZ(-11px);
+    -webkit-text-stroke:1.3px rgba(79,209,197,.70);
+  }
+  .holo-front{
+    opacity:1;transform:translateZ(0);
+    filter:drop-shadow(0 0 10px rgba(79,209,197,.55));
+  }
+  /* radial glow behind the stack */
+  .stat b.holo::before{
+    content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    background:radial-gradient(circle at 42% 34%, rgba(79,209,197,.22), rgba(0,0,0,0) 62%);
+    filter:blur(8px);transform:translateZ(-30px);
+  }
+  /* faint sheen across the tile */
+  .stat b.holo::after{
+    content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    background:linear-gradient(120deg,rgba(255,255,255,.07),rgba(255,255,255,.012) 45%,rgba(0,0,0,0));
+    transform:translateZ(-22px);
+  }
+  .stat small{
+    display:block;font-size:12px;font-weight:700;letter-spacing:.01em;color:var(--ink-3);
+    margin-top:14px;text-align:center;
+  }
+
+  .band-label{
+    font-size:12px;font-weight:700;letter-spacing:.01em;
+    color:var(--ink-3);margin:clamp(26px,3vw,36px) 0 14px;
+  }
+
+  .edu-grid{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));
+    gap:var(--gap);
+  }
+  .edu{
+    background:var(--sunken);border-radius:var(--r-md);padding:18px 20px;
+    border-left:3px solid var(--accent);
+  }
+  .edu b{font-size:14.5px;font-weight:700;color:var(--ink);display:block}
+  .edu small{font-size:13px;color:var(--ink-3);display:block;margin-top:4px}
+
+  /* ==========================================================
+     TIMELINE
+     ========================================================== */
+  .timeline{position:relative;padding-left:34px;--beam:0%}
+  /* the grey track */
+  .timeline::before{content:"";position:absolute;left:7px;top:12px;bottom:12px;width:2px;background:var(--line)}
+  /* the beam — its height follows how far you have scrolled through the section */
+  .timeline::after{
+    content:"";position:absolute;left:7px;top:12px;width:2px;
+    height:var(--beam);max-height:calc(100% - 24px);border-radius:2px;
+    background:linear-gradient(180deg,
+      var(--accent) 0%, #4fd1c5 62%, rgba(79,209,197,0) 100%);
+    box-shadow:0 0 12px rgba(13,148,136,.45);
+  }
+  .tl{
+    position:relative;padding-bottom:clamp(24px,3vw,34px);
+    opacity:0;transform:translateY(18px);
+    transition:opacity .55s ease, transform .55s cubic-bezier(.2,.7,.3,1);
+  }
+  .tl.in{opacity:1;transform:none}
+  .tl:last-child{padding-bottom:0}
+  /* the dot stays grey until the beam reaches it, then lights up */
+  .tl::before{
+    content:"";position:absolute;left:-34px;top:5px;width:16px;height:16px;border-radius:50%;
+    background:var(--line);box-shadow:0 0 0 4px var(--sunken);
+    transition:background .45s ease, box-shadow .45s ease;
+  }
+  .tl.lit::before{
+    background-image:var(--grad-main);
+    box-shadow:0 0 0 4px var(--sunken), 0 0 16px rgba(13,148,136,.6);
+  }
+  .tl-role{font-size:clamp(17px,2.2vw,21px);font-weight:700;color:var(--ink)}
+  .tl-when{font-size:13px;font-weight:700;color:var(--accent);margin:2px 0 3px}
+  .tl-org{font-size:12.5px;font-weight:600;letter-spacing:.01em;color:var(--ink-3);margin-bottom:12px}
+  .tl ul{list-style:none;display:flex;flex-direction:column;gap:8px;max-width:78ch}
+  .tl li{position:relative;padding-left:18px;font-size:14.5px}
+  .tl li::before{content:"";position:absolute;left:0;top:8px;width:6px;height:6px;border-radius:50%;background:var(--ink-3);opacity:.55}
+
+  /* ==========================================================
+     PROJECTS
+     ========================================================== */
+  .proj{
+    background:var(--sheet);border-radius:var(--r-lg);box-shadow:var(--shadow-sm);
+    padding:clamp(20px,2.6vw,30px);transition:.25s;
+  }
+  .proj + .proj{margin-top:var(--gap)}
+  .proj:hover{box-shadow:var(--shadow-lg);transform:translateY(-3px)}
+  .proj-head{display:flex;gap:16px;align-items:flex-start}
+  .proj-no{
+    flex:0 0 auto;width:48px;height:48px;border-radius:var(--r-md);
+    background-image:var(--grad-main);color:var(--on-grad);
+    display:grid;place-items:center;font-size:16px;font-weight:700;box-shadow:var(--shadow-sm);
+  }
+  .proj-title{font-size:clamp(17px,2.2vw,22px);font-weight:700;color:var(--ink);line-height:1.25}
+  .proj-client{font-size:14px;font-weight:600;color:var(--ink-2);margin-top:4px}
+  .proj-when{font-size:12.5px;font-weight:700;letter-spacing:.01em;color:var(--ink-3);margin-top:3px}
+  .proj-cols{display:grid;grid-template-columns:1fr 1fr;gap:clamp(20px,3vw,38px);margin-top:22px}
+  @media (max-width:780px){ .proj-cols{grid-template-columns:1fr;gap:20px} }
+  .col-label{
+    font-size:12px;font-weight:700;letter-spacing:.01em;
+    color:var(--ink-3);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--line);
+  }
+  .proj-cols ul{list-style:none;display:flex;flex-direction:column;gap:9px}
+  .proj-cols li{position:relative;padding-left:18px;font-size:14.5px}
+  .proj-cols li::before{content:"";position:absolute;left:0;top:8px;width:6px;height:6px;border-radius:50%;background:var(--ink-3);opacity:.5}
+  .wins li{color:var(--ink-2)}
+  .wins li::before{background-image:var(--grad-good);opacity:1}
+
+  /* ==========================================================
+     EXPERTISE
+     ========================================================== */
+  .skill-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(240px,100%),1fr));gap:var(--gap)}
+  .skill{
+    display:flex;align-items:center;gap:13px;padding:14px 16px;
+    background:var(--sunken);border-radius:var(--r-md);
+    font-size:14px;font-weight:600;color:var(--ink);line-height:1.3;transition:.25s;
+  }
+  .skill:hover{background:var(--sheet);box-shadow:var(--shadow-sm);transform:translateY(-3px)}
+  .skill i{
+    width:36px;height:36px;flex:none;display:grid;place-items:center;
+    background-image:var(--grad-main);color:var(--on-grad);
+    border-radius:var(--r-sm);font-style:normal;box-shadow:var(--shadow-sm);
+  }
+  .chips{display:flex;flex-wrap:wrap;gap:9px}
+  .chip{
+    font-size:12.5px;font-weight:600;padding:8px 14px;border-radius:999px;
+    background:var(--sheet);color:var(--ink-2);box-shadow:var(--shadow-sm);
+  }
+  .panel .chip{background:var(--sheet)}
+
+  /* ==========================================================
+     PROCESS
+     ========================================================== */
+  .steps{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));
+    gap:var(--gap);padding:0 var(--pad) var(--pad);
+  }
+  .step{
+    background:var(--sunken);border-radius:var(--r-md);padding:20px 18px;transition:.25s;
+  }
+  .step:hover{background:var(--sheet);box-shadow:var(--shadow-sm);transform:translateY(-3px)}
+  .step b{
+    display:grid;place-items:center;width:38px;height:38px;margin-bottom:12px;
+    border-radius:var(--r-sm);background-image:var(--grad-main);color:var(--on-grad);
+    font-size:14px;font-weight:700;box-shadow:var(--shadow-sm);
+  }
+  .step-name{font-size:15px;font-weight:700;color:var(--ink)}
+  .step-note{font-size:12.5px;margin-top:4px;line-height:1.45;color:var(--ink-3)}
+
+  /* ==========================================================
+     TOOLKIT
+     ========================================================== */
+  .tool-grid{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));
+    gap:var(--gap);padding:0 var(--pad) var(--pad);
+  }
+  .tool-card{
+    background:var(--sunken);border-radius:var(--r-lg);padding:22px;transition:.25s;
+  }
+  .tool-card:hover{box-shadow:var(--shadow-sm)}
+  .tool-card h3{font-size:13px;font-weight:700;letter-spacing:.01em;margin-bottom:16px;color:var(--ink)}
+  .tool-card h3::after{content:"";display:block;width:34px;height:3px;border-radius:2px;background-image:var(--grad-main);margin-top:9px}
+
+  /* ==========================================================
+     TESTIMONIALS
+     ========================================================== */
+  .quote{max-width:80ch}
+  .quote + .quote{margin-top:clamp(22px,3vw,32px)}
+  .quote p{font-size:15px}
+  .quote .who{font-weight:700;font-size:15px;color:var(--accent);margin-top:10px}
+
+  /* ==========================================================
+     SHARE
+     ========================================================== */
+  .nav-share{position:relative;display:flex;flex:none}
+  .share-pop{
+    position:absolute;top:48px;right:0;min-width:200px;z-index:70;
+    background:var(--sheet);border-radius:var(--r-md);padding:8px;
+    box-shadow:var(--shadow-lg);display:none;
+  }
+  .nav-share.open .share-pop{display:block}
+  .nav-share.open .tooltip{display:none}
+  .share-pop button{
+    display:flex;align-items:center;gap:11px;width:100%;
+    padding:10px 12px;background:transparent;border:0;border-radius:var(--r-sm);cursor:pointer;
+    font-family:var(--sans);font-size:13.5px;font-weight:600;color:var(--ink-2);text-align:left;
+    transition:.2s;
+  }
+  .share-pop button:hover{background:var(--accent-soft);color:var(--accent)}
+  .share-pop button svg{flex:none}
+  .share-pop hr{border:0;border-top:1px solid var(--line);margin:6px 10px}
+
+  .share-row{display:flex;flex-wrap:wrap;gap:10px}
+  .share-btn{
+    display:inline-flex;align-items:center;gap:9px;
+    padding:11px 17px;border:0;border-radius:var(--r-sm);
+    background:var(--sheet);color:var(--ink-2);box-shadow:var(--shadow-sm);
+    font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;transition:.25s;
+  }
+  .share-btn:hover{background-image:var(--grad-main);color:var(--on-grad);box-shadow:var(--shadow-lg);transform:translateY(-2px)}
+  .share-btn svg{flex:none}
+  .copy-bar{display:flex;margin-top:16px;max-width:600px;gap:10px}
+  .copy-bar input{
+    flex:1 1 auto;min-width:0;font-family:var(--sans);font-size:13.5px;
+    border:1px solid var(--line);border-radius:var(--r-sm);padding:12px 15px;
+    background:var(--sheet);color:var(--ink-2);
+  }
+  .copy-bar input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .copy-bar button{
+    flex:none;display:inline-flex;align-items:center;gap:8px;
+    font-family:var(--sans);font-size:12.5px;font-weight:700;letter-spacing:.01em;
+    background-image:var(--grad-main);color:var(--on-grad);border:0;border-radius:var(--r-sm);
+    padding:12px 22px;cursor:pointer;box-shadow:var(--shadow-sm);transition:.25s;
+  }
+  .copy-bar button:hover{box-shadow:var(--shadow-lg);transform:translateY(-2px)}
+  .copy-bar button.done{background-image:var(--grad-good)}
+  @media (max-width:520px){
+    .copy-bar{flex-direction:column}
+    .copy-bar button{justify-content:center}
+  }
+
+  /* ==========================================================
+     SOCIAL
+     ========================================================== */
+  .socials{display:flex;flex-wrap:wrap;gap:clamp(14px,2.2vw,26px);align-items:center}
+  .social{display:inline-flex;align-items:center;gap:11px;font-size:13.5px;font-weight:600;color:var(--ink-2)}
+  .social .badge{
+    width:38px;height:38px;flex:none;border-radius:50%;
+    background:var(--sunken);color:var(--ink-2);
+    display:grid;place-items:center;transition:.25s;
+  }
+  .social:hover{color:var(--accent)}
+  .social:hover .badge{background-image:var(--grad-main);color:var(--on-grad);box-shadow:var(--shadow-sm);transform:translateY(-3px)}
+  .panel .social .badge{background:var(--sheet)}
+  .panel .social:hover .badge{background-image:var(--grad-main);color:var(--on-grad)}
+  /* WhatsApp keeps its own brand green */
+  .social-wa .badge-wa{color:#25d366}
+  .social-wa:hover{color:#1da851}
+  .social-wa:hover .badge-wa,
+  .panel .social-wa:hover .badge-wa{background-image:none;background:#25d366;color:#fff}
+
+  /* ==========================================================
+     CONTACT
+     ========================================================== */
+  .contact-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:var(--gap)}
+  .cbox{
+    background:var(--sunken);border-radius:var(--r-md);padding:20px;transition:.25s;display:block;
+  }
+  a.cbox:hover{background:var(--sheet);box-shadow:var(--shadow-sm);transform:translateY(-3px)}
+  .cbox .cico{
+    width:44px;height:44px;display:grid;place-items:center;border-radius:var(--r-sm);
+    background-image:var(--grad-main);color:var(--on-grad);margin-bottom:14px;box-shadow:var(--shadow-sm);
+  }
+  .cbox small{display:block;font-size:12px;font-weight:700;letter-spacing:.01em;color:var(--ink-3);margin-bottom:5px}
+  .cbox b{font-size:14.5px;font-weight:600;color:var(--ink);word-break:break-word}
+
+  .contact-foot{display:flex;justify-content:space-between;align-items:flex-end;gap:26px;flex-wrap:wrap;margin-top:clamp(26px,3.4vw,38px)}
+  .scan{display:flex;align-items:center;gap:18px}
+  .scan-label{font-size:clamp(17px,2.2vw,23px);font-weight:700;color:var(--ink);line-height:1.1}
+  .scan-sub{font-size:12px;font-weight:700;letter-spacing:.01em;color:var(--ink-3);margin-top:7px}
+  .qr{
+    width:136px;height:136px;flex:none;background:#fff;
+    border-radius:var(--r-md);padding:8px;display:grid;place-items:center;
+    box-shadow:var(--shadow-sm);
+  }
+  .qr svg{width:100%;height:100%;display:block}
+  .qr.empty{
+    color:var(--ink-3);font-size:11px;font-weight:700;text-align:center;
+    letter-spacing:.01em;
+  }
+  .declaration{font-size:12.5px;font-style:italic;color:var(--ink-3);max-width:70ch}
+
+  /* ---- CV + portfolio download cards ---- */
+  .cv-row{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(min(290px,100%),1fr));
+    gap:var(--gap);margin-top:clamp(24px,3vw,34px);
+  }
+  .cv{
+    display:flex;flex-direction:column;align-items:flex-start;gap:14px;
+    background:var(--sunken);border-radius:var(--r-lg);padding:24px;transition:.25s;
+  }
+  .cv:hover{background:var(--sheet);box-shadow:var(--shadow-lg);transform:translateY(-3px)}
+  .cv-ico{
+    width:52px;height:52px;flex:none;display:grid;place-items:center;
+    background-image:var(--grad-main);color:var(--on-grad);border-radius:var(--r-md);
+    box-shadow:var(--shadow-sm);
+  }
+  .cv-txt{flex:1 1 auto;min-width:0}
+  .cv-txt b{display:block;font-size:17px;font-weight:700;color:var(--ink)}
+  .cv-txt small{display:block;font-size:13px;color:var(--ink-3);margin-top:4px;line-height:1.5}
+  .cv-go{
+    font-size:12.5px;font-weight:700;letter-spacing:.01em;
+    background-image:var(--grad-main);color:var(--on-grad);border-radius:var(--r-sm);
+    padding:12px 22px;white-space:nowrap;box-shadow:var(--shadow-sm);transition:.25s;
+    display:inline-flex;align-items:center;gap:9px;
+  }
+  .cv:hover .cv-go{box-shadow:var(--shadow-lg)}
+
+  /* ==========================================================
+     CONTACT FORM
+     ========================================================== */
+  .connect-top{display:flex;gap:clamp(20px,3.4vw,48px);flex-wrap:wrap;align-items:flex-start}
+  .connect-pitch{flex:1 1 260px;min-width:250px}
+  .connect-pitch .big{font-size:clamp(21px,3vw,30px);font-weight:700;color:var(--ink);line-height:1.25}
+  .connect-pitch p{font-size:14.5px;margin-top:14px;max-width:36ch;color:var(--ink-2)}
+  .form{flex:1 1 420px;min-width:280px}
+  .form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media (max-width:620px){ .form-row{grid-template-columns:1fr} }
+  .field{margin-bottom:16px}
+  .field label{
+    display:block;font-size:12.5px;font-weight:700;letter-spacing:.01em;margin-bottom:8px;color:var(--ink-3);
+  }
+  .field input,.field textarea{
+    width:100%;font-family:var(--sans);font-size:14.5px;color:var(--ink);
+    background:var(--sheet);border:1px solid var(--line);border-radius:var(--r-sm);
+    padding:13px 15px;transition:.2s;
+  }
+  .field textarea{resize:vertical;min-height:130px;line-height:1.55}
+  .field input:focus,.field textarea:focus{
+    outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);
+  }
+  .field input::placeholder,.field textarea::placeholder{color:var(--ink-3)}
+  .req{color:#ea0606;font-weight:700}
+  .req-note{font-size:12px;color:var(--ink-3);margin:-6px 0 16px}
+  /* a field the visitor has filled in wrongly and then left */
+  .field input:not(:placeholder-shown):invalid,
+  .field textarea:not(:placeholder-shown):invalid{border-color:#ea0606}
+  .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+  .btn-send{
+    font-family:var(--sans);font-size:13px;font-weight:700;letter-spacing:.01em;
+    background-image:var(--grad-main);color:var(--on-grad);border:0;border-radius:var(--r-sm);
+    padding:15px 32px;cursor:pointer;box-shadow:var(--shadow-sm);transition:.25s;
+    display:inline-flex;align-items:center;gap:10px;
+  }
+  .btn-send:hover{box-shadow:var(--shadow-lg);transform:translateY(-2px)}
+  .btn-send:disabled{opacity:.6;cursor:wait;transform:none;box-shadow:var(--shadow-sm)}
+  .form-foot{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:6px}
+  .form-note{font-size:12.5px;font-weight:600;color:var(--ink-3);max-width:36ch}
+  .form-note.ok{color:#17ad37}
+  .form-note.err{color:#ea0606}
+
+  footer{
+    width:100%;margin:0;padding:8px var(--pad) 30px;
+    font-size:12.5px;font-weight:600;color:var(--ink-3);text-align:center;
+  }
+
+  /* ==========================================================
+     3D FOCUS HOVER
+     Point at one card and it lifts toward you in 3D while its
+     siblings recede and blur out. Adapted from the Uiverse.io
+     "cards" effect by kamehame-ha.
+     Only on real pointers — on a touch screen :hover sticks
+     after a tap and would leave the group blurred.
+     ========================================================== */
+  @media (hover:hover) and (pointer:fine){
+    .stat-band,.edu-grid,#projectList,.skill-grid,.chips,
+    .steps,.tool-grid,.contact-grid,.cv-row,.share-row,.socials{
+      perspective:1200px;
+    }
+    .stat-band > *,.edu-grid > *,#projectList > *,.skill-grid > *,.chips > *,
+    .steps > *,.tool-grid > *,.contact-grid > *,.cv-row > *,.share-row > *,.socials > *{
+      position:relative;transform-style:preserve-3d;
+      transition:transform 400ms cubic-bezier(.2,.7,.3,1),
+                 filter 400ms, opacity 400ms, box-shadow 400ms;
+    }
+    /* the one under the cursor comes forward */
+    .stat-band > :hover,.edu-grid > :hover,#projectList > :hover,.skill-grid > :hover,
+    .chips > :hover,.steps > :hover,.tool-grid > :hover,.contact-grid > :hover,
+    .cv-row > :hover,.share-row > :hover,.socials > :hover{
+      transform:scale(1.06) translateZ(40px);
+      z-index:3;
+    }
+    /* everything else in the same group drops back — no blur, so the other
+       cards stay perfectly readable while one is lifted */
+    .stat-band:hover > :not(:hover),.edu-grid:hover > :not(:hover),
+    #projectList:hover > :not(:hover),.skill-grid:hover > :not(:hover),
+    .chips:hover > :not(:hover),.steps:hover > :not(:hover),
+    .tool-grid:hover > :not(:hover),.contact-grid:hover > :not(:hover),
+    .cv-row:hover > :not(:hover),.share-row:hover > :not(:hover),
+    .socials:hover > :not(:hover){
+      opacity:.82;transform:scale(.96) translateZ(-30px);
+    }
+    /* the inner badge already lifts on its own — don't double it up */
+    .socials > :hover .badge{transform:none}
+  }
+
+  /* ==========================================================
+     RESPONSIVE
+     ========================================================== */
+  @media (max-width:900px){
+    .connect-top{gap:26px}
+    .form{flex:1 1 100%}
+  }
+  @media (max-width:768px){
+    .cover{min-height:auto}
+    .contact-foot{margin-top:28px}
+  }
+  @media (max-width:640px){
+    :root{--pad:20px;--gap:12px}
+    .about-copy,.connect-pitch,.form{min-width:0;flex-basis:100%}
+    .about-top{flex-direction:column-reverse;gap:24px}
+    .flip-card{width:100%;max-width:290px;height:300px;margin:0 auto}
+    .cover-strip{flex-direction:column;align-items:flex-start;gap:14px}
+    .strip-right{align-items:flex-start;width:100%;gap:12px}
+    .strip-right .socials{justify-content:flex-start}
+    .sec-title{align-items:flex-start}
+    .timeline{padding-left:28px}
+    .tl::before{left:-28px;width:14px;height:14px}
+    .contact-foot{flex-direction:column;align-items:flex-start;gap:22px}
+    .field input,.field textarea{font-size:16px}
+    .btn-send{width:100%;justify-content:center}
+    .form-note{max-width:100%}
+  }
+  @media (max-width:560px){
+    .nav-tools{gap:6px}
+    .Btn{width:34px;height:34px}
+    .nav-inner{gap:8px}
+  }
+  @media (max-width:430px){
+    .nav-brand{display:none}
+  }
+  @media (max-width:380px){
+    :root{--pad:16px;--gap:10px}
+    .skill{font-size:13.5px;padding:12px 13px}
+  }
+  @media (max-height:520px) and (orientation:landscape){
+    .cover{min-height:auto}
+  }
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    *{transition:none!important}
+    .skill:hover,.social:hover .badge,.btn-send:hover,.proj:hover,.step:hover,
+    .stat:hover,.cv:hover,.share-btn:hover,.Btn:hover,a.cbox:hover{transform:none}
+    .Btn:hover .svgIcon{animation:none}
+    /* no 3D lift, no blurring siblings */
+    .stat-band > :hover,.edu-grid > :hover,#projectList > :hover,.skill-grid > :hover,
+    .chips > :hover,.steps > :hover,.tool-grid > :hover,.contact-grid > :hover,
+    .cv-row > :hover,.share-row > :hover,.socials > :hover{transform:none}
+    .stat-band:hover > :not(:hover),.edu-grid:hover > :not(:hover),
+    #projectList:hover > :not(:hover),.skill-grid:hover > :not(:hover),
+    .chips:hover > :not(:hover),.steps:hover > :not(:hover),
+    .tool-grid:hover > :not(:hover),.contact-grid:hover > :not(:hover),
+    .cv-row:hover > :not(:hover),.share-row:hover > :not(:hover),
+    .socials:hover > :not(:hover){filter:none;opacity:1;transform:none}
+    /* timeline entries appear straight away instead of fading up */
+    .tl{opacity:1;transform:none}
+    /* the tile stops wobbling and flattens to a single neon layer */
+    .stat b.holo{animation:none;transform:none}
+    .holo-back,.holo-mid{display:none}
+    .stat b.holo::before,.stat b.holo::after{transform:none}
+  }
+
+  /* ==========================================================
+     PRINT  â†’  one section per page
+     ========================================================== */
+  @media print{
+    :root{
+      --bg:#fff;--sheet:#fff;--sunken:#fff;--line:#ccc;
+      --ink:#000;--ink-2:#222;--ink-3:#555;
+      --shadow:none;--shadow-sm:none;--shadow-lg:none;--pad:0px;--gap:0px;
+    }
+    body{background:#fff}
+    header.nav,.no-print,footer,.cv-row{display:none!important}
+    .stack{padding:0;gap:0}
+    .sheet{box-shadow:none;border-radius:0;break-after:page;break-inside:avoid}
+    .sheet:last-child{break-after:auto}
+    .cover{min-height:auto;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .cover-body{padding:24mm 0 12mm}
+    .sec-no,.proj-no,.step b,.skill i,.cbox .cico,.cv-ico,.tl::before{
+      -webkit-print-color-adjust:exact;print-color-adjust:exact;
+    }
+    .proj,.tl,.tool-card,.quote,.step,.skill{break-inside:avoid;box-shadow:none}
+    .proj + .proj{margin-top:10px}
+    .steps,.tool-grid{padding:0}
+    @page{margin:12mm}
+  }
+</style>
+</head>
+<body>
+
+<!-- =================================================================
+     All content lives in the DATA object near the bottom of this file.
+     Edit that block only — every page rebuilds itself from it.
+     ================================================================= -->
+
+<header class="nav no-print">
+  <div class="nav-inner">
+    <a class="Btn nav-home" id="homeBtn" href="#cover" aria-label="Back to the first page">
+      <span class="btn-ico" id="homeIco"></span>
+      <span class="tooltip">Home</span>
+    </a>
+    <a class="nav-brand" id="navBrand" href="#cover" title="Back to the first page"></a>
+    <nav class="nav-links" id="navLinks"></nav>
+    <div class="nav-tools">
+      <button class="Btn nav-toggle" id="navToggle" aria-label="Menu" aria-expanded="false" aria-controls="navLinks">
+        <span class="btn-ico" id="menuIco"></span>
+        <span class="tooltip">Menu</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="stack">
+
+  <!-- ============ COVER ============ -->
+  <section class="sheet cover" id="cover">
+    <div class="cover-body">
+      <div class="cover-kicker" id="coverKicker"></div>
+      <h1>Portfolio</h1>
+    </div>
+    <div class="cover-strip">
+      <div class="strip-left">
+        <div class="who" id="coverName"></div>
+        <div class="what" id="coverRole"></div>
+      </div>
+      <div class="strip-right">
+        <div class="socials" id="socialsCover"></div>
+        <div class="strip-tools no-print">
+          <a class="Btn" id="dlBtn" aria-label="Download CV">
+            <svg class="svgIcon" viewBox="0 0 384 512" height="14" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M169.4 470.6c12.5 12.5 32.8 12.5 45.3 0l160-160c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L224 370.8 224 64c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 306.7L54.6 265.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l160 160z"/>
+            </svg>
+            <span class="icon2"></span>
+            <span class="tooltip" id="dlTip">Download</span>
+          </a>
+          <a class="Btn" id="pfBtn" aria-label="Save the portfolio as a PDF">
+            <span class="btn-ico" id="pfIco"></span>
+            <span class="tooltip" id="pfTip">Save portfolio</span>
+          </a>
+          <div class="nav-share" id="shareWrap">
+            <button class="Btn" id="shareBtn" aria-label="Share this portfolio" aria-expanded="false">
+              <span class="btn-ico" id="shareIco"></span>
+              <span class="tooltip">Share</span>
+            </button>
+            <div class="share-pop" id="sharePop"></div>
+          </div>
+          <button class="Btn" id="themeBtn" aria-label="Toggle light or dark theme">
+            <span class="btn-ico" id="themeIco"></span>
+            <span class="tooltip" id="themeTip"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ABOUT ============ -->
+  <section class="sheet" id="about">
+    <div class="pad">
+      <div class="about-top">
+        <div class="about-copy">
+          <h3 class="blk">About Me</h3>
+          <div class="subrole" id="aboutRole"></div>
+          <p class="body-copy" id="aboutSummary"></p>
+        </div>
+        <div class="flip-card" id="flipCard" tabindex="0" role="button" aria-label="Profile card — flip for contact details">
+          <div class="flip-card-inner">
+            <div class="flip-card-front">
+              <div class="pfp">
+                <img id="photo" alt="" hidden>
+                <span class="initials" id="initials"></span>
+              </div>
+            </div>
+            <div class="flip-card-back">
+              <div class="back-title" id="flipBackTitle"></div>
+              <p class="description" id="flipDesc"></p>
+              <div class="socialbar" id="flipSocial"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stat-band" id="stats"></div>
+
+      <div class="band-label">Education</div>
+      <div class="edu-grid" id="eduGrid"></div>
+    </div>
+  </section>
+
+  <!-- ============ EXPERIENCE ============ -->
+  <section class="sheet" id="experience">
+    <div class="sec-title"><h2>Experience</h2><span class="sec-no">01</span></div>
+    <div class="panel pad"><div class="timeline" id="timeline"></div></div>
+  </section>
+
+  <!-- ============ PROJECTS ============ -->
+  <section class="sheet" id="projects">
+    <div class="sec-title"><h2>Projects</h2><span class="sec-no">02</span></div>
+    <p class="lede">Retail and industrial implementations covering requirement analysis, configuration, data migration, testing, UAT, training, go-live and hypercare.</p>
+    <div class="panel pad"><div id="projectList"></div></div>
+  </section>
+
+  <!-- ============ EXPERTISE ============ -->
+  <section class="sheet" id="skills">
+    <div class="sec-title"><h2>Expertise</h2><span class="sec-no">03</span></div>
+    <div class="pad" style="padding-top:0">
+      <div class="skill-grid" id="skillGrid"></div>
+    </div>
+    <div class="panel pad">
+      <div class="band-label" style="margin-top:0">Strengths</div>
+      <div class="chips" id="strengthChips"></div>
+    </div>
+  </section>
+
+  <!-- ============ PROCESS ============ -->
+  <section class="sheet" id="process">
+    <div class="sec-title"><h2>Process</h2><span class="sec-no">04</span></div>
+    <p class="lede">A repeatable seven-stage path that keeps scope, timeline and user adoption under control.</p>
+    <div class="steps" id="processFlow"></div>
+  </section>
+
+  <!-- ============ TOOLS ============ -->
+  <section class="sheet" id="tools">
+    <div class="sec-title"><h2>Toolkit</h2><span class="sec-no">05</span></div>
+    <div class="tool-grid" id="toolGroups"></div>
+  </section>
+
+  <!-- ============ TESTIMONIALS (auto-hides while empty) ============ -->
+  <section class="sheet" id="testimonials">
+    <div class="sec-title"><h2>Testimonials</h2><span class="sec-no">06</span></div>
+    <div class="panel pad" id="quoteList"></div>
+  </section>
+
+  <!-- ============ CERTIFICATIONS (auto-hides while empty) ============ -->
+  <section class="sheet" id="certifications">
+    <div class="sec-title"><h2>Certifications</h2><span class="sec-no">07</span></div>
+    <div class="pad" style="padding-top:0"><div class="edu-grid" id="certGrid"></div></div>
+  </section>
+
+  <!-- ============ CONTACT ============ -->
+  <section class="sheet" id="contact">
+    <div class="panel sec-title"><h2>Contact</h2><span class="sec-no" id="contactNo">08</span></div>
+    <div class="pad">
+      <div class="contact-grid" id="contactGrid"></div>
+      <div class="cv-row">
+        <a class="cv" id="cvBox">
+          <span class="cv-ico" id="cvIco"></span>
+          <span class="cv-txt"><b id="cvLabel"></b><small id="cvNote"></small></span>
+          <span class="cv-go" id="cvGo"></span>
+        </a>
+        <a class="cv" id="pfBox">
+          <span class="cv-ico" id="pfIcoBig"></span>
+          <span class="cv-txt"><b id="pfLabel"></b><small id="pfNote"></small></span>
+          <span class="cv-go" id="pfGo"></span>
+        </a>
+      </div>
+
+      <div class="band-label">Social</div>
+      <div class="socials" id="socialsContact"></div>
+
+      <div class="band-label">Share this portfolio</div>
+      <div class="share-row" id="shareRow"></div>
+      <div class="copy-bar">
+        <input id="shareLink" readonly aria-label="Link to this portfolio">
+        <button id="copyBtn" type="button"></button>
+      </div>
+      <div class="contact-foot">
+        <p class="declaration" id="declaration"></p>
+        <div class="scan">
+          <div>
+            <div class="scan-label">Scan<br>here</div>
+            <div class="scan-sub" id="scanSub"></div>
+          </div>
+          <div class="qr" id="qr"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CONNECT / CONTACT FORM ============ -->
+  <section class="sheet" id="connect">
+    <div class="sec-title"><h2>Contact Me</h2><span class="sec-no">09</span></div>
+    <div class="panel pad">
+      <div class="connect-top">
+        <div class="connect-pitch">
+          <div class="big">Have an implementation project or opportunity?<br>Let's connect!</div>
+          <p id="pitchNote"></p>
+          <div class="socials" id="socialsConnect" style="margin-top:22px"></div>
+        </div>
+
+        <form class="form no-print" id="contactForm" novalidate>
+          <div class="form-row">
+            <div class="field">
+              <label for="f-name">Name <span class="req" aria-hidden="true">*</span></label>
+              <input id="f-name" name="name" type="text" placeholder="Enter your name" required>
+            </div>
+            <div class="field">
+              <label for="f-email">Email <span class="req" aria-hidden="true">*</span></label>
+              <input id="f-email" name="email" type="email" placeholder="Enter your email" required>
+            </div>
+          </div>
+          <div class="field">
+            <label for="f-phone">Phone Number <span class="req" aria-hidden="true">*</span></label>
+            <input id="f-phone" name="phone" type="tel" placeholder="10-digit mobile number" required
+                   inputmode="numeric" maxlength="10" minlength="10" pattern="[0-9]{10}"
+                   autocomplete="tel-national" title="Enter exactly 10 digits">
+          </div>
+          <div class="field">
+            <label for="f-msg">Message <span class="req" aria-hidden="true">*</span></label>
+            <textarea id="f-msg" name="message" placeholder="Type your message here..." required></textarea>
+          </div>
+          <p class="req-note">* All fields are required</p>
+          <!-- spam trap: real people never fill this in -->
+          <div class="hp" aria-hidden="true"><label>Company<input type="text" name="_gotcha" tabindex="-1" autocomplete="off"></label></div>
+          <div class="form-foot">
+            <button class="btn-send" type="submit" id="sendBtn">Send Message</button>
+            <p class="form-note" id="formNote" role="status" aria-live="polite"></p>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<footer id="footer"></footer>
+
+<script>
+/* ==================================================================
+   ▼▼▼  YOUR CONTENT — EDIT THIS BLOCK ONLY  ▼▼▼
+   Taken from your résumé. Add or remove list items freely;
+   every page rebuilds itself from this object.
+   ================================================================== */
+const DATA = {
+
+  /* ---------- COVER & ABOUT ---------- */
+  name:      "Sriraman Rangarajan",
+  role:      "Software Implementation Lead",
+  kicker:    "ERP · Retail POS · WMS — Chennai, India",
+  subrole:   "Implementation & Support Engineer",
+
+  /* ---------- PROFILE FLIP CARD (About page) ----------
+     Front shows photo.jpg (or your initials until you add it).
+     Hover — or tap on a phone — turns it over to show this: */
+  cardBackTitle: "Let's work together",
+  cardBackText:  "ERP, Retail POS and WMS rollouts across Tamil Nadu — "
+               + "from requirement gathering to go-live and hypercare.",
+  summary:   "Implementation and Support Engineer with 2.8+ years of experience supporting ERP platforms, " +
+             "Retail POS systems and business applications. I take solutions from requirement gathering " +
+             "through configuration, testing, UAT and user training to a stable go-live — and stay through " +
+             "post-go-live support. Proficient in software deployment, technical troubleshooting, system " +
+             "integration, database management and customer support. Open to travel for client implementations.",
+
+  stats: [
+    { value: "2.8+", label: "Years in implementation" },
+    { value: "35+",  label: "Retail stores supported" },
+    { value: "6+",    label: "Application types handled" },
+    { value: "2+",   label: "End-to-end rollouts led" }
+  ],
+
+  /* ---------- EDUCATION ---------- */
+  education: [
+    {
+      name:   "Bachelor of Engineering — Mechanical Engineering",
+      issuer: "New Prince Shri Bhavani Eng & Tech, Chennai · June 2022"
+    }
+  ],
+
+  /* ---------- EXPERIENCE ---------- */
+  experience: [
+    {
+      role: "Implementation Lead",
+      when: "Dec 2023 – Present",
+      org:  "Uniprotech Solutions · Chennai, India",
+      points: [
+        "Technical support, system implementation and IT infrastructure management across retail, commercial and industrial environments — supporting 35+ retail stores and multiple business locations.",
+        "End-to-end application support, troubleshooting, implementation, configuration and maintenance for ERP, POS and business software solutions.",
+        "Resolved POS issues across multiple sites and participated in custom software integration testing.",
+        "Implemented and maintained industrial applications — WIP, WMS, Asset Tracking and Dispatch Validation.",
+        "Gathered requirements, performed system testing and delivered post-implementation support with business users."
+      ]
+    },
+    {
+      role: "Team Lead",
+      when: "Feb 2022 – Feb 2023",
+      org:  "ZF Industries · Chennai, India",
+      points: [
+        "Managed time effectively to ensure tasks were completed on schedule and deadlines were met.",
+        "Operated equipment and machinery according to safety guidelines.",
+        "Completed day-to-day duties accurately and efficiently."
+      ]
+    }
+  ],
+
+  /* ---------- PROJECTS ---------- */
+  projects: [
+    {
+      title:    "PAARRever SaaS — Multi-Store Retail Rollout",
+      client:   "Kaleesuwari Retail Pvt. Ltd. (KRPL) · Tamil Nadu",
+      duration: "Uniprotech Solutions · Implementation Lead",
+      responsibilities: [
+        "Led the end-to-end deployment of the PAARRever SaaS solution across multiple small retail stores in Tamil Nadu.",
+        "Gathered store-level requirements and configured the application to match each outlet's billing and stock flow.",
+        "Handled master data setup, migration and validation ahead of every store cutover.",
+        "Ran functional testing and UAT with store and head-office users before sign-off.",
+        "Trained store staff on billing, stock and day-close operations.",
+        "Provided on-site and remote go-live support, then post-implementation hypercare."
+      ],
+      achievements: [
+        "Deployed the SaaS solution across multiple small retail stores state-wide in Tamil Nadu.",
+        "Improved daily store operations and overall operational efficiency.",
+        "Standardised a repeatable store onboarding checklist reused across later rollouts."
+      ]
+    },
+    {
+      title:    "ERP & POS Implementation",
+      client:   "Revathi Stores",
+      duration: "Uniprotech Solutions · Implementation Lead",
+      responsibilities: [
+        "Managed the end-to-end implementation of ERP and POS solutions across business functions.",
+        "Conducted requirement gathering and gap analysis with business users.",
+        "Configured the ERP and POS modules to match the client's operating processes.",
+        "Executed data migration, validation and reconciliation prior to cutover.",
+        "Coordinated functional testing and UAT cycles, tracking defects to closure.",
+        "Managed go-live, user training and post-production support."
+      ],
+      achievements: [
+        "Delivered a smooth deployment and successful go-live with no business disruption.",
+        "Improved operational efficiency across business functions post go-live.",
+        "Drove user adoption through hands-on training and documented SOPs."
+      ]
+    },
+    {
+      title:    "Retail POS Support & Multi-Site Implementation",
+      client:   "Retail clients — 35+ stores across multiple locations",
+      duration: "Uniprotech Solutions · Implementation Lead",
+      responsibilities: [
+        "Delivered end-to-end application support, troubleshooting, implementation, configuration and maintenance for ERP, POS and business software.",
+        "Resolved POS-related issues across multiple sites to keep day-to-day retail operations running.",
+        "Participated in custom software integration testing to improve system functionality.",
+        "Managed IT infrastructure across retail and commercial environments."
+      ],
+      achievements: [
+        "Supported implementation and post-go-live activities for 35+ retail stores across multiple locations.",
+        "Reduced operational downtime through timely resolution of POS and system-related issues.",
+        "Coordinated clients and internal teams to ensure smooth deployment and user adoption."
+      ]
+    },
+    {
+      title:    "Industrial Applications — WIP, WMS, Asset Tracking & Dispatch Validation",
+      client:   "Industrial & commercial clients",
+      duration: "Uniprotech Solutions · Implementation Lead",
+      responsibilities: [
+        "Supported the implementation and maintenance of WIP (Work in Progress), WMS (Warehouse Management System), Asset Tracking and Dispatch Validation systems.",
+        "Collaborated with business users to gather requirements for industrial process management solutions.",
+        "Performed system testing and troubleshooting across shop-floor and warehouse workflows.",
+        "Provided post-implementation support and issue resolution."
+      ],
+      achievements: [
+        "Ensured smooth operational workflows across warehouse, dispatch and shop-floor processes.",
+        "Bridged business users and engineering to convert floor requirements into working configuration.",
+        "Maintained system stability across multiple industrial business locations."
+      ]
+    },
+    {
+      title:    "AI-Powered Attendance Management Application",
+      client:   "Self-initiated project · React front-end",
+      duration: "Developer · AI-assisted build with Claude",
+      responsibilities: [
+        "Developed a React-based web application for managing and tracking employee and student attendance through a modular, user-friendly interface.",
+        "Designed the application with a module-based approach covering requirement analysis, UI development, feature implementation, integration, testing and refinement.",
+        "Implemented the core attendance workflows — attendance recording, status tracking, data management and reporting.",
+        "Integrated AI-assisted development using Claude, applying prompt engineering to design features, generate implementation approaches and improve code quality.",
+        "Created and reviewed test cases per module to validate functionality, edge cases, user interactions and expected behaviour.",
+        "Performed functional testing and bug fixing across modules, refining the application against test results."
+      ],
+      achievements: [
+        "Followed a structured path from requirement to module design, implementation, test-case preparation, testing, debugging and final validation.",
+        "Accelerated the build by using AI prompts for feature planning, component generation, debugging, code optimisation and documentation.",
+        "Built reusable React components and a scalable front-end structure ready for future feature additions."
+      ]
+    }
+  ],
+
+  /* ---------- EXPERTISE ---------- */
+  // icon: pick any name from the ICONS list further down
+  // (gear, grid, users, target, check, up, alert, cap, doc, monitor,
+  //  db, transfer, shield, chart, link, server)
+  skills: [
+    { icon: "gear",     name: "Software Implementation" },
+    { icon: "grid",     name: "Project Coordination" },
+    { icon: "users",    name: "Client & Team Management" },
+    { icon: "target",   name: "Requirement Analysis" },
+    { icon: "check",    name: "UAT & Functional Testing" },
+    { icon: "up",       name: "Go-Live & Post Go-Live Support" },
+    { icon: "alert",    name: "Issue & Incident Management" },
+    { icon: "cap",      name: "User Training" },
+    { icon: "doc",      name: "Documentation & Reporting" },
+    { icon: "monitor",  name: "POS Support & Issue Resolution" },
+    { icon: "db",       name: "SQL Development (DDL/DML/DQL/TCL)" },
+    { icon: "transfer", name: "Data Migration & Validation" },
+    { icon: "shield",   name: "Database Management & Integrity" },
+    { icon: "chart",    name: "Power BI Reporting" },
+    { icon: "link",     name: "Software Integration Support" },
+    { icon: "server",   name: "IT Infrastructure Support" }
+  ],
+
+  strengths: [
+    "Software Implementation & Troubleshooting",
+    "Client Support & User Training",
+    "ERP Deployment & Post Go-Live Support",
+    "Data Migration & Validation",
+    "Functional Testing & UAT",
+    "Problem-Solving & Analytical Skills",
+    "Time Management & Multitasking",
+    "Adaptability & Quick Learning",
+    "Willingness to Travel for Client Sites"
+  ],
+
+  /* ---------- PROCESS ---------- */
+  process: [
+    { name: "Requirement",   note: "Gather, analyse, sign off" },
+    { name: "Configuration", note: "Set up to business flow" },
+    { name: "Testing",       note: "Functional & integration" },
+    { name: "UAT",           note: "Business validation" },
+    { name: "Training",      note: "Users & super-users" },
+    { name: "Go-Live",       note: "Cutover & launch" },
+    { name: "Support",       note: "Hypercare & handover" }
+  ],
+
+  /* ---------- TOOLKIT ---------- */
+  tools: [
+    { group: "Business Applications",    items: ["ERP", "Retail POS", "WMS", "WIP", "Asset Tracking", "Dispatch Validation", "SaaS"] },
+    { group: "Data & Reporting",         items: ["SQL — DDL, DML, DQL, TCL", "Database Management", "Data Migration & Validation", "Power BI", "Excel (Advanced)"] },
+    { group: "Delivery & Collaboration", items: ["MS Teams", "Outlook", "Word", "PowerPoint", "Ticketing / Helpdesk"] },
+    { group: "Support & Infrastructure", items: ["On-Site & Remote Support", "IT Infrastructure Management", "Integration Testing", "UAT & Documentation"] },
+    { group: "Build & AI-Assisted Dev",  items: ["React", "JavaScript", "Claude (AI-assisted development)", "Prompt Engineering", "Test-Case Design"] }
+  ],
+
+  /* ---------- TESTIMONIALS  (empty = section hidden) ----------
+     Add entries like:
+     { text: "What the client said about the rollout.", who: "Name — Role, Company" }        */
+  testimonials: [],
+
+  /* ---------- CERTIFICATIONS  (empty = section hidden) ----------
+     Add entries like:
+     { name: "Certification Name", issuer: "Issuing Body · 2025" }                            */
+  certifications: [],
+
+  /* ---------- CONTACT ---------- */
+  contact: {
+    phone:   "+91 95852 61683",
+    email:   "sriramanrangarajan10@gmail.com",
+    address: "Chennai, Tamil Nadu, India"
+  },
+
+  /* ---------- SOCIAL  (icon: linkedin | instagram | github) ---------- */
+  social: [
+    { icon: "linkedin",  handle: "sriraman-rangarajan", url: "https://in.linkedin.com/in/sriraman-rangarajan-656a81363" },
+    { icon: "github",    handle: "sriraman1012",        url: "https://github.com/sriraman1012" },
+    { icon: "instagram", handle: "sriram10_",           url: "https://instagram.com/sriram10_" }
+  ],
+
+  declaration: "I hereby declare that the information provided above is true and correct to the best of my knowledge and belief.",
+
+  /* ---------- "SCAN HERE" QR CODE ----------
+     The code is drawn by the page itself, so whatever you put in qrData is
+     what people get when they scan — no image file to regenerate.
+     Handy alternatives:
+       "tel:+919585261683"                          → dials you
+       "mailto:sriramanrangarajan10@gmail.com"      → opens a new email
+       "https://your-portfolio-site.com"            → your live site
+     Or a contact card that saves straight to the phone's address book:
+       "MECARD:N:Sriraman Rangarajan;TEL:+919585261683;EMAIL:sriramanrangarajan10@gmail.com;;"   */
+  qrData:    "https://in.linkedin.com/in/sriraman-rangarajan-656a81363",
+  qrCaption: "LinkedIn profile",
+
+  /* ---------- SHARING ----------
+     siteUrl : the public address of this portfolio once it is online, e.g.
+               "https://sriraman1012.github.io/portfolio/". Until you set it,
+               sharing falls back to your LinkedIn profile, because a link to
+               a file on your own PC is useless to whoever receives it.       */
+  siteUrl:    "",
+  shareTitle: "Sriraman Rangarajan — Software Implementation Lead",
+  shareText:  "Sriraman Rangarajan — Software Implementation Lead (ERP · Retail POS · WMS). "
+            + "2.8+ years taking rollouts from requirement to go-live. Portfolio:",
+
+  /* ---------- CONTACT FORM ----------
+     A plain HTML page cannot send email by itself, so you get two modes:
+
+     MODE 1 (default, formEndpoint left empty)
+       "Send Message" opens the visitor's own mail app with everything
+       pre-filled and addressed to you. Works offline, needs no signup —
+       but the visitor has to press Send in their mail app.
+
+     MODE 2 (recommended once the site is online)
+       Messages land straight in your inbox, no mail app involved.
+       Free, 2 minutes to set up — pick either service:
+
+       • Web3Forms — https://web3forms.com — paste your email, get an
+         access key, then set:
+             formEndpoint: "https://api.web3forms.com/submit",
+             formKey:      "your-access-key-here",
+
+       • Formspree — https://formspree.io — create a form, then set:
+             formEndpoint: "https://formspree.io/f/yourFormId",
+             formKey:      "",
+
+     MODE 3 (in use) — your own mailer in /server
+       Messages POST to the little Node service in this folder, which
+       sends them over Gmail SMTP straight to your inbox. Your 16-digit
+       Google App Password lives in server/.env and never leaves the
+       server — putting it in this file would hand it to every visitor.
+
+       Local testing : cd server && npm install && npm start
+       Once deployed : swap the localhost URL below for the live one,
+                       e.g. "https://api.your-site.com/api/contact"      */
+  /* Served by /server: same origin when opened via the server link,
+     absolute fallback if index.html is double-clicked (file://). */
+  formEndpoint: location.protocol === 'file:'
+                  ? 'http://localhost:8080/api/contact'
+                  : '/api/contact',
+  formKey:      "",
+  formPitch:    "Tell me about the rollout — scope, locations and timeline — and I'll get back to you within a day.",
+
+  /* ---------- CV / RESUME DOWNLOAD ----------
+     resumePdf : the file handed over by the ⬇ button in the nav bar and by
+                 the "Download CV" block on the Contact page. The file must
+                 sit in this same folder. Leave it "" and both fall back to
+                 the print dialog ("Save as PDF") instead.
+     resumeLabel / resumeNote : the wording on the Contact page block.       */
+  resumePdf:   "Sriraman-Rangarajan-CV.pdf",
+  resumeLabel: "Download CV",
+  resumeNote:  "My resume — experience, technical skills, strengths and key achievements. PDF, 2 pages.",
+
+  /* ---------- PORTFOLIO DOWNLOAD (the second nav button) ----------
+     Prints THIS page — one section per page, yellow panels and all.
+     Leave portfolioPdf empty to use the print dialog. If you'd rather hand
+     out a fixed file, press Ctrl+P, save it beside index.html, and name it
+     here — e.g. portfolioPdf: "Sriraman-Rangarajan-Portfolio.pdf",         */
+  portfolioPdf:   "",
+  portfolioLabel: "Download Portfolio",
+  portfolioNote:  "This full portfolio as a designed PDF — projects, process and toolkit, one section per page."
+};
+/* ==================================================================
+   ▲▲▲  END OF EDITABLE CONTENT — rendering code below  ▲▲▲
+   ================================================================== */
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const clean = v => String(v).replace(/[\[\]]/g, '');
+
+/* ==================================================================
+   ICON LIBRARY — inline SVG, no external files, works offline.
+   ICONS = outline icons (skills, contact) · BRANDS = solid logos.
+   Add your own: paste SVG innards under a new key and use that name.
+   ================================================================== */
+const ICONS = {
+  gear:     '<circle cx="12" cy="12" r="3.4"/><circle cx="12" cy="12" r="8.4" stroke-dasharray="2.4 2.4"/>',
+  grid:     '<rect x="3.5" y="3.5" width="7" height="7"/><rect x="13.5" y="3.5" width="7" height="7"/><rect x="3.5" y="13.5" width="7" height="7"/><rect x="13.5" y="13.5" width="7" height="7"/>',
+  users:    '<circle cx="9" cy="8" r="3.2"/><path d="M2.8 20c0-3.4 2.8-5.4 6.2-5.4s6.2 2 6.2 5.4"/><circle cx="17.8" cy="9.6" r="2.3"/><path d="M17.8 14.6c2.3 0 3.7 1.6 3.7 3.6"/>',
+  target:   '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.4"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/>',
+  check:    '<circle cx="12" cy="12" r="8.5"/><polyline points="8,12.3 11,15.2 16,9.2"/>',
+  up:       '<line x1="12" y1="20.5" x2="12" y2="4"/><polyline points="5.8,10.4 12,3.8 18.2,10.4"/>',
+  alert:    '<path d="M12 3.6 21 20H3z"/><line x1="12" y1="9.6" x2="12" y2="14.4"/><circle cx="12" cy="17.2" r="1" fill="currentColor" stroke="none"/>',
+  cap:      '<polygon points="12,4 22,9 12,14 2,9"/><path d="M6.5 11.2V16c0 1.8 2.7 3.2 5.5 3.2s5.5-1.4 5.5-3.2v-4.8"/>',
+  doc:      '<path d="M6 3h8l4 4v14H6z"/><polyline points="14,3 14,7 18,7"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/>',
+  monitor:  '<rect x="2.8" y="4" width="18.4" height="12"/><line x1="12" y1="16" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/>',
+  db:       '<ellipse cx="12" cy="6" rx="7.5" ry="3"/><path d="M4.5 6v12c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3V6"/><path d="M4.5 12c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3"/>',
+  transfer: '<line x1="3.5" y1="9" x2="17.5" y2="9"/><polyline points="14,5.5 17.5,9 14,12.5"/><line x1="20.5" y1="15" x2="6.5" y2="15"/><polyline points="10,11.5 6.5,15 10,18.5"/>',
+  shield:   '<path d="M12 3l8 3v6.2c0 4.4-3.3 7.8-8 8.8-4.7-1-8-4.4-8-8.8V6z"/><polyline points="8.8,12 11.2,14.4 15.4,9.6"/>',
+  chart:    '<line x1="3.5" y1="20" x2="20.5" y2="20"/><rect x="5.4" y="12" width="3.6" height="8"/><rect x="10.2" y="7.4" width="3.6" height="12.6"/><rect x="15" y="15" width="3.6" height="5"/>',
+  link:     '<circle cx="8.6" cy="12" r="4.6"/><circle cx="15.4" cy="12" r="4.6"/>',
+  server:   '<rect x="3" y="4" width="18" height="5.6"/><rect x="3" y="14.4" width="18" height="5.6"/><circle cx="7" cy="6.8" r="1" fill="currentColor" stroke="none"/><circle cx="7" cy="17.2" r="1" fill="currentColor" stroke="none"/>',
+  phone:    '<path d="M8.2 3.5H4.6c-.7 0-1.2.6-1.1 1.3.5 4.3 2.4 8.2 5.3 11.1s6.8 4.8 11.1 5.3c.7.1 1.3-.4 1.3-1.1v-3.6c0-.6-.4-1.1-1-1.2-1.3-.2-2.5-.5-3.6-1-.4-.2-.9-.1-1.2.2l-1.9 1.9a17 17 0 0 1-6.1-6.1l1.9-1.9c.3-.3.4-.8.2-1.2-.5-1.1-.8-2.3-1-3.6-.1-.6-.6-1-1.2-1z"/>',
+  mail:     '<rect x="2.5" y="5" width="19" height="14"/><polyline points="2.5,5.8 12,13 21.5,5.8"/>',
+  pin:      '<path d="M12 21.5s7-6.8 7-11.5a7 7 0 1 0-14 0c0 4.7 7 11.5 7 11.5z"/><circle cx="12" cy="9.8" r="2.6"/>',
+  download: '<line x1="12" y1="3" x2="12" y2="15"/><polyline points="7.2,10.4 12,15.4 16.8,10.4"/><line x1="4.5" y1="20.2" x2="19.5" y2="20.2"/>',
+  menu:     '<line x1="3.5" y1="7" x2="20.5" y2="7"/><line x1="3.5" y1="12" x2="20.5" y2="12"/><line x1="3.5" y1="17" x2="20.5" y2="17"/>',
+  close:    '<line x1="5.6" y1="5.6" x2="18.4" y2="18.4"/><line x1="18.4" y1="5.6" x2="5.6" y2="18.4"/>',
+  sun:      '<circle cx="12" cy="12" r="4.2"/><line x1="12" y1="2.4" x2="12" y2="4.6"/><line x1="12" y1="19.4" x2="12" y2="21.6"/><line x1="2.4" y1="12" x2="4.6" y2="12"/><line x1="19.4" y1="12" x2="21.6" y2="12"/><line x1="5.2" y1="5.2" x2="6.8" y2="6.8"/><line x1="17.2" y1="17.2" x2="18.8" y2="18.8"/><line x1="18.8" y1="5.2" x2="17.2" y2="6.8"/><line x1="6.8" y1="17.2" x2="5.2" y2="18.8"/>',
+  moon:     '<path d="M20.2 14.6A8.6 8.6 0 0 1 9.4 3.8a8.6 8.6 0 1 0 10.8 10.8z"/>',
+  print:    '<polyline points="7,8.5 7,3.2 17,3.2 17,8.5"/><path d="M7 8.5H4.6A1.6 1.6 0 0 0 3 10.1v5.3a1.6 1.6 0 0 0 1.6 1.6H7"/><path d="M17 8.5h2.4A1.6 1.6 0 0 1 21 10.1v5.3a1.6 1.6 0 0 1-1.6 1.6H17"/><rect x="7" y="13.4" width="10" height="7.4"/>',
+  home:     '<polyline points="3.2,10.9 12,3.6 20.8,10.9"/><path d="M5.5 9.6V20.3h13V9.6"/><rect x="9.7" y="13.9" width="4.6" height="6.4"/>',
+  share:    '<circle cx="17.8" cy="5.6" r="2.7"/><circle cx="6.2" cy="12" r="2.7"/><circle cx="17.8" cy="18.4" r="2.7"/><line x1="8.6" y1="10.7" x2="15.4" y2="6.9"/><line x1="8.6" y1="13.3" x2="15.4" y2="17.1"/>',
+  copy:     '<rect x="8.6" y="8.6" width="11.9" height="11.9" rx="1.8"/><path d="M15.4 5.4H5.3a1.8 1.8 0 0 0-1.8 1.8v10.1"/>',
+  tick:     '<polyline points="5,12.6 9.6,17.2 19,6.8"/>',
+  briefcase:'<rect x="2.8" y="7.4" width="18.4" height="12.8" rx="2.2"/><path d="M8.6 7.4V5.7a1.9 1.9 0 0 1 1.9-1.9h3a1.9 1.9 0 0 1 1.9 1.9v1.7"/><line x1="2.8" y1="12.7" x2="21.2" y2="12.7"/>',
+  quote:    '<path d="M10.4 6.2C7.4 7.3 5.4 9.9 5.4 13.2v4.6h5.8v-6.4H8.6c0-1.8.6-3 1.8-3.6z"/><path d="M20 6.2c-3 1.1-5 3.7-5 7v4.6h5.8v-6.4h-2.6c0-1.8.6-3 1.8-3.6z"/>'
+};
+const BRANDS = {
+  linkedin:  '<path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.35V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.07 2.07 0 1 1 0-4.13 2.07 2.07 0 0 1 0 4.13zm1.78 13.02H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0z"/>',
+  github:    '<path d="M12 .3a12 12 0 0 0-3.79 23.4c.6.1.82-.26.82-.58l-.02-2.04c-3.34.73-4.04-1.6-4.04-1.6-.55-1.39-1.34-1.76-1.34-1.76-1.08-.75.09-.73.09-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.1-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.64 1.66.24 2.88.12 3.18.77.84 1.23 1.91 1.23 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22l-.01 3.29c0 .31.21.68.82.57A12 12 0 0 0 12 .3z"/>',
+  whatsapp:  '<path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.08-.3-.15-1.26-.46-2.4-1.48-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.18.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.91-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.8.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.87 1.22 3.07c.15.2 2.1 3.2 5.08 4.49.7.3 1.26.49 1.69.62.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2-1.41.25-.7.25-1.29.18-1.42-.08-.12-.28-.2-.57-.35M12.05 21.8a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26C2.17 6.45 6.6 2.02 12.05 2.02c2.64 0 5.12 1.03 6.99 2.9a9.83 9.83 0 0 1 2.89 6.99c0 5.45-4.43 9.88-9.88 9.88m8.41-18.3A11.82 11.82 0 0 0 12.05.24C5.5.24.16 5.57.16 12.13c0 2.1.55 4.14 1.59 5.94L.06 24.24l6.3-1.65a11.88 11.88 0 0 0 5.69 1.45c6.55 0 11.89-5.34 11.89-11.9a11.82 11.82 0 0 0-3.48-8.41z"/>',
+  telegram:  '<path d="M11.94 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.06 0zm4.97 7.22c.1 0 .32.02.46.14a.51.51 0 0 1 .17.33c.02.09.04.3.02.47-.18 1.9-.96 6.5-1.36 8.63-.17.9-.5 1.2-.82 1.23-.7.06-1.23-.46-1.9-.9-1.06-.7-1.65-1.13-2.68-1.8-1.18-.78-.41-1.21.26-1.91.18-.19 3.25-2.98 3.31-3.23.01-.03.01-.15-.06-.21s-.17-.04-.25-.03c-.1.03-1.79 1.14-5.06 3.35-.48.33-.91.49-1.3.48-.43-.01-1.25-.24-1.87-.44-.75-.25-1.35-.38-1.3-.79.03-.22.33-.44.9-.67 3.5-1.52 5.83-2.53 7-3.01 3.33-1.39 4.02-1.63 4.48-1.64z"/>',
+  x:         '<path d="M18.9 1.15h3.68l-8.04 9.19L24 22.85h-7.41l-5.8-7.58-6.63 7.58H.47l8.6-9.83L0 1.15h7.59l5.25 6.93zm-1.29 19.5h2.04L6.49 3.24H4.3z"/>',
+  instagram: '<path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.41.68.81.9 1.38.16.42.36 1.06.41 2.23.06 1.26.07 1.64.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.23-.22.56-.48.96-.9 1.38-.42.42-.82.68-1.38.9-.42.16-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.41-.56-.22-.96-.48-1.38-.9-.42-.42-.68-.82-.9-1.38-.16-.42-.36-1.06-.41-2.23-.06-1.27-.07-1.65-.07-4.85s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.42-.16 1.06-.36 2.23-.41 1.27-.06 1.65-.07 4.85-.07M12 0C8.74 0 8.33.01 7.05.07 5.78.13 4.9.33 4.14.63c-.79.3-1.46.72-2.13 1.38C1.35 2.68.94 3.35.63 4.14.33 4.9.13 5.78.07 7.05.01 8.33 0 8.74 0 12s.01 3.67.07 4.95c.06 1.27.26 2.15.56 2.91.3.79.72 1.46 1.38 2.13.67.67 1.34 1.08 2.13 1.38.76.3 1.64.5 2.91.56C8.33 23.99 8.74 24 12 24s3.67-.01 4.95-.07c1.27-.06 2.15-.26 2.91-.56.79-.3 1.46-.71 2.13-1.38.67-.67 1.08-1.34 1.38-2.13.3-.76.5-1.64.56-2.91.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.06-1.27-.26-2.15-.56-2.91-.3-.79-.71-1.46-1.38-2.13C21.32 1.35 20.65.94 19.86.63c-.76-.3-1.64-.5-2.91-.56C15.67.01 15.26 0 12 0zm0 5.84a6.16 6.16 0 1 0 0 12.32 6.16 6.16 0 0 0 0-12.32zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm7.85-10.41a1.44 1.44 0 1 1-2.88 0 1.44 1.44 0 0 1 2.88 0z"/>'
+};
+/* outline icon */
+const icon = (name, size = 20) => ICONS[name]
+  ? `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor"
+       stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`
+  : '';
+/* solid brand logo */
+const brand = (name, size = 17) => BRANDS[name]
+  ? `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="currentColor" aria-hidden="true">${BRANDS[name]}</svg>`
+  : '';
+
+/* ==================================================================
+   QR CODE ENCODER  —  byte mode, versions 1-10, error correction M.
+   Draws the code as inline SVG so it always matches DATA.qrData and
+   there is no separate image file to keep in sync. ~200 bytes max.
+   ================================================================== */
+const QR = (() => {
+  /* --- GF(256) log tables for Reed-Solomon --- */
+  const EXP = new Uint8Array(512), LOG = new Uint8Array(256);
+  for (let i = 0, x = 1; i < 255; i++) { EXP[i] = x; LOG[x] = i; x <<= 1; if (x & 0x100) x ^= 0x11D; }
+  for (let i = 255; i < 512; i++) EXP[i] = EXP[i - 255];
+  const mul = (a, b) => (a && b) ? EXP[LOG[a] + LOG[b]] : 0;
+
+  /* --- per-version tables for EC level M ---
+         version: [ total codewords, EC codewords per block, [[blocks, data per block], …] ] */
+  const V = {
+    1:[26,10,[[1,16]]],        2:[44,16,[[1,28]]],   3:[70,26,[[1,44]]],
+    4:[100,18,[[2,32]]],       5:[134,24,[[2,43]]],  6:[172,16,[[4,27]]],
+    7:[196,18,[[4,31]]],       8:[242,22,[[2,38],[2,39]]],
+    9:[292,22,[[3,36],[2,37]]],10:[346,26,[[4,43],[1,44]]]
+  };
+  const ALIGN = {1:[],2:[6,18],3:[6,22],4:[6,26],5:[6,30],6:[6,34],
+                 7:[6,22,38],8:[6,24,42],9:[6,26,46],10:[6,28,50]};
+
+  /* --- BCH check bits, used for the format and version information --- */
+  const bch = (data, gen, deg) => {
+    let d = data << deg;
+    const gl = 32 - Math.clz32(gen);
+    while (32 - Math.clz32(d) >= gl) d ^= gen << ((32 - Math.clz32(d)) - gl);
+    return d;
+  };
+  /* EC level M is 0b00; the mask is the low 3 bits */
+  const formatBits = mask => (((mask << 10) | bch(mask, 0x537, 10)) ^ 0x5412);
+  const versionBits = v => (v << 12) | bch(v, 0x1F25, 12);
+
+  /* --- Reed-Solomon error correction codewords --- */
+  const rsGen = deg => {
+    let g = [1];
+    for (let i = 0; i < deg; i++) {
+      const n = new Array(g.length + 1).fill(0);
+      for (let j = 0; j < g.length; j++) { n[j] ^= g[j]; n[j + 1] ^= mul(g[j], EXP[i]); }
+      g = n;
+    }
+    return g;
+  };
+  const rsEcc = (data, ecLen) => {
+    const g = rsGen(ecLen), buf = new Uint8Array(data.length + ecLen);
+    buf.set(data);
+    for (let i = 0; i < data.length; i++) {
+      const f = buf[i];
+      if (!f) continue;
+      for (let j = 0; j < g.length; j++) buf[i + j] ^= mul(g[j], f);
+    }
+    return Array.from(buf.slice(data.length));
+  };
+
+  const MASKS = [
+    (r,c) => (r + c) % 2 === 0,
+    (r,c) => r % 2 === 0,
+    (r,c) => c % 3 === 0,
+    (r,c) => (r + c) % 3 === 0,
+    (r,c) => (((r >> 1) + Math.floor(c / 3)) % 2) === 0,
+    (r,c) => ((r * c) % 2 + (r * c) % 3) === 0,
+    (r,c) => (((r * c) % 2 + (r * c) % 3) % 2) === 0,
+    (r,c) => (((r + c) % 2 + (r * c) % 3) % 2) === 0
+  ];
+
+  /* --- how ugly (and so how risky to scan) a masked grid is --- */
+  const penalty = m => {
+    const n = m.length;
+    let p = 0;
+    const line = get => {
+      for (let a = 0; a < n; a++) {
+        let run = 1;
+        for (let b = 1; b < n; b++) {
+          if (get(a, b) === get(a, b - 1)) { run++; }
+          else { if (run >= 5) p += 3 + (run - 5); run = 1; }
+        }
+        if (run >= 5) p += 3 + (run - 5);
+      }
+    };
+    line((a,b) => m[a][b]);              // rule 1, rows
+    line((a,b) => m[b][a]);              // rule 1, columns
+    for (let r = 0; r < n - 1; r++)      // rule 2, 2x2 blocks
+      for (let c = 0; c < n - 1; c++)
+        if (m[r][c] === m[r][c+1] && m[r][c] === m[r+1][c] && m[r][c] === m[r+1][c+1]) p += 3;
+    const FIND = [1,0,1,1,1,0,1];        // rule 3, finder-like runs
+    const look = get => {
+      for (let a = 0; a < n; a++)
+        for (let b = 0; b <= n - 7; b++) {
+          let hit = true;
+          for (let k = 0; k < 7; k++) if (get(a, b + k) !== FIND[k]) { hit = false; break; }
+          if (!hit) continue;
+          const before = [], after = [];
+          for (let k = 1; k <= 4; k++) {
+            before.push(b - k >= 0 ? get(a, b - k) : 0);
+            after.push(b + 6 + k < n ? get(a, b + 6 + k) : 0);
+          }
+          if (before.every(v => v === 0) || after.every(v => v === 0)) p += 40;
+        }
+    };
+    look((a,b) => m[a][b]);
+    look((a,b) => m[b][a]);
+    let dark = 0;                        // rule 4, dark/light balance
+    m.forEach(row => row.forEach(v => dark += v));
+    p += 10 * Math.floor(Math.abs(dark * 100 / (n * n) - 50) / 5);
+    return p;
+  };
+
+  /* --- build the module grid for a string --- */
+  const build = text => {
+    const bytes = new TextEncoder().encode(text);
+
+    /* smallest version that fits */
+    let ver = 0, spec = null, dataCw = 0, ccBits = 8;
+    for (let v = 1; v <= 10; v++) {
+      const [total, ec, blocks] = V[v];
+      const nBlocks = blocks.reduce((s, b) => s + b[0], 0);
+      const cap = total - ec * nBlocks;
+      const cc = v < 10 ? 8 : 16;
+      if (4 + cc + bytes.length * 8 <= cap * 8) { ver = v; spec = V[v]; dataCw = cap; ccBits = cc; break; }
+    }
+    if (!ver) throw new Error('QR: ' + bytes.length + ' bytes is too long (limit ~216)');
+    const [, ecLen, blockSpec] = spec;
+
+    /* bit stream → codewords */
+    const bits = [];
+    const push = (val, len) => { for (let i = len - 1; i >= 0; i--) bits.push((val >> i) & 1); };
+    push(4, 4);                       // byte mode
+    push(bytes.length, ccBits);
+    bytes.forEach(b => push(b, 8));
+    for (let i = 0; i < 4 && bits.length < dataCw * 8; i++) bits.push(0);   // terminator
+    while (bits.length % 8) bits.push(0);
+    const cw = [];
+    for (let i = 0; i < bits.length; i += 8) cw.push(parseInt(bits.slice(i, i + 8).join(''), 2));
+    for (let i = 0; cw.length < dataCw; i++) cw.push(i % 2 ? 0x11 : 0xEC);  // pad
+
+    /* split into blocks, add error correction, interleave */
+    const lens = [];
+    blockSpec.forEach(([count, len]) => { for (let i = 0; i < count; i++) lens.push(len); });
+    let at = 0;
+    const dBlocks = lens.map(len => cw.slice(at, at += len));
+    const eBlocks = dBlocks.map(b => rsEcc(b, ecLen));
+    const out = [];
+    for (let i = 0; i < Math.max(...lens); i++) dBlocks.forEach(b => { if (i < b.length) out.push(b[i]); });
+    for (let i = 0; i < ecLen; i++) eBlocks.forEach(b => out.push(b[i]));
+
+    /* function patterns */
+    const size = 17 + 4 * ver;
+    const m = Array.from({ length: size }, () => new Array(size).fill(null));
+    const set = (r, c, v) => { if (r >= 0 && r < size && c >= 0 && c < size) m[r][c] = v; };
+
+    const finder = (r, c) => {
+      for (let i = -1; i <= 7; i++) for (let j = -1; j <= 7; j++) {
+        const ring = (i >= 0 && i <= 6 && (j === 0 || j === 6)) || (j >= 0 && j <= 6 && (i === 0 || i === 6));
+        const core = i >= 2 && i <= 4 && j >= 2 && j <= 4;
+        set(r + i, c + j, ring || core ? 1 : 0);
+      }
+    };
+    finder(0, 0); finder(0, size - 7); finder(size - 7, 0);
+    for (let i = 8; i < size - 8; i++) { const v = i % 2 === 0 ? 1 : 0; set(6, i, v); set(i, 6, v); }
+    const ac = ALIGN[ver];
+    ac.forEach(r => ac.forEach(c => {
+      if ((r === 6 && c === 6) || (r === 6 && c === size - 7) || (r === size - 7 && c === 6)) return;
+      for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++)
+        set(r + i, c + j, Math.max(Math.abs(i), Math.abs(j)) !== 1 ? 1 : 0);
+    }));
+    set(size - 8, 8, 1);                                   // the always-dark module
+    for (let i = 0; i < 9; i++) { if (i !== 6) { set(8, i, 0); set(i, 8, 0); } }   // format areas
+    for (let i = 0; i < 8; i++) set(8, size - 1 - i, 0);
+    for (let i = 0; i < 7; i++) set(size - 1 - i, 8, 0);
+    if (ver >= 7) for (let i = 0; i < 18; i++) {          // version areas
+      set(Math.floor(i / 3), size - 11 + i % 3, 0);
+      set(size - 11 + i % 3, Math.floor(i / 3), 0);
+    }
+    const fixed = m.map(row => row.map(v => v !== null));
+
+    /* zig-zag data placement, right to left, skipping the timing column */
+    let idx = 0, upward = true;
+    for (let c = size - 1; c > 0; c -= 2) {
+      if (c === 6) c--;
+      for (let i = 0; i < size; i++) {
+        const r = upward ? size - 1 - i : i;
+        for (let k = 0; k < 2; k++) {
+          const cc = c - k;
+          if (m[r][cc] === null) {
+            m[r][cc] = idx < out.length * 8 ? (out[idx >> 3] >> (7 - (idx & 7))) & 1 : 0;
+            idx++;
+          }
+        }
+      }
+      upward = !upward;
+    }
+
+    /* pick the mask with the lowest penalty */
+    let best = null, bestScore = Infinity;
+    for (let mask = 0; mask < 8; mask++) {
+      const t = m.map((row, r) => row.map((v, c) => fixed[r][c] ? v : (MASKS[mask](r, c) ? v ^ 1 : v)));
+      const fb = formatBits(mask);
+      for (let i = 0; i < 15; i++) {
+        const bit = (fb >> i) & 1;
+        if      (i < 6)   t[i][8] = bit;
+        else if (i === 6) t[7][8] = bit;
+        else if (i === 7) t[8][8] = bit;
+        else if (i === 8) t[8][7] = bit;
+        else              t[8][14 - i] = bit;
+        if (i < 8) t[8][size - 1 - i] = bit;
+        else       t[size - 15 + i][8] = bit;
+      }
+      if (ver >= 7) {
+        const vb = versionBits(ver);
+        for (let i = 0; i < 18; i++) {
+          const bit = (vb >> i) & 1, a = size - 11 + i % 3, b = Math.floor(i / 3);
+          t[b][a] = bit; t[a][b] = bit;
+        }
+      }
+      t[size - 8][8] = 1;
+      const score = penalty(t);
+      if (score < bestScore) { bestScore = score; best = t; }
+    }
+    return best;
+  };
+
+  /* --- render as inline SVG, black on white with a quiet zone --- */
+  const svg = (text, quiet = 4) => {
+    const m = build(text), n = m.length, dim = n + quiet * 2;
+    let d = '';
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++)
+      if (m[r][c]) d += `M${c + quiet} ${r + quiet}h1v1h-1z`;
+    return `<svg viewBox="0 0 ${dim} ${dim}" shape-rendering="crispEdges" role="img" aria-label="QR code">`
+         + `<rect width="${dim}" height="${dim}" fill="#ffffff"/>`
+         + `<path d="${d}" fill="#000000"/></svg>`;
+  };
+
+  return { build, svg };
+})();
+
+/* ---- cover + about ---- */
+$('navBrand').innerHTML  = `${esc(DATA.name)} <em>/ ${esc(DATA.role)}</em>`;
+$('coverKicker').textContent = DATA.kicker;
+$('coverName').textContent   = DATA.name;
+$('coverRole').textContent   = DATA.role;
+$('aboutRole').textContent   = DATA.subrole;
+$('aboutSummary').textContent = DATA.summary;
+$('declaration').textContent  = DATA.declaration;
+$('initials').textContent = DATA.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+
+/* ---- profile flip card ---- */
+(function flipCard(){
+  const card = $('flipCard');
+  $('flipBackTitle').textContent = DATA.cardBackTitle;
+  $('flipDesc').textContent      = DATA.cardBackText;
+  $('flipSocial').innerHTML = DATA.social
+    .map(s => `<a href="${esc(s.url)}" target="_blank" rel="noopener" aria-label="${esc(s.icon)}">${brand(s.icon, 18)}</a>`)
+    .join('');
+
+  /* phones have no hover, so a tap turns it over — but not when the tap
+     was actually aimed at one of the social links on the back */
+  card.addEventListener('click', ev => {
+    if (ev.target.closest('a')) return;
+    card.classList.toggle('flipped');
+  });
+  card.addEventListener('keydown', ev => {
+    if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); card.classList.toggle('flipped'); }
+  });
+})();
+
+/* each figure is drawn three times, stacked at different depths — the two
+   rear copies are decorative, so screen readers only announce the front one */
+$('stats').innerHTML = DATA.stats.map(s => `
+  <div class="stat">
+    <b class="holo">
+      <span class="holo-l holo-back" aria-hidden="true">${esc(s.value)}</span>
+      <span class="holo-l holo-mid"  aria-hidden="true">${esc(s.value)}</span>
+      <span class="holo-l holo-front">${esc(s.value)}</span>
+    </b>
+    <small>${esc(s.label)}</small>
+  </div>`).join('');
+
+const cardRow = list => list.map(c => `
+  <div class="edu"><b>${esc(c.name)}</b><small>${esc(c.issuer)}</small></div>`).join('');
+$('eduGrid').innerHTML  = cardRow(DATA.education);
+$('certGrid').innerHTML = cardRow(DATA.certifications);
+
+/* ---- experience ---- */
+$('timeline').innerHTML = DATA.experience.map(e => `
+  <div class="tl">
+    <div class="tl-role">${esc(e.role)}</div>
+    <div class="tl-when">${esc(e.when)}</div>
+    <div class="tl-org">${esc(e.org)}</div>
+    <ul>${e.points.map(p => `<li>${esc(p)}</li>`).join('')}</ul>
+  </div>`).join('');
+
+/* ---- experience timeline: the beam fills as you scroll through the section,
+   entries fade up on arrival, and each dot lights when the beam reaches it ---- */
+(function timelineMotion(){
+  const tl = $('timeline');
+  const items = [...tl.querySelectorAll('.tl')];
+  if (!items.length) return;
+
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (still) { items.forEach(i => i.classList.add('in', 'lit')); return; }
+
+  /* fade each entry up as it arrives */
+  const reveal = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); reveal.unobserve(e.target); } });
+  }, { rootMargin: '0px 0px -12% 0px' });
+  items.forEach(i => reveal.observe(i));
+
+  /* beam height + dot lighting, recalculated on scroll (throttled to one frame) */
+  let queued = false;
+  const draw = () => {
+    queued = false;
+    const box = tl.getBoundingClientRect();
+    const vh = window.innerHeight || 800;
+    if (!box.height) return;
+    const past = (vh * 0.78) - box.top;                       // how far the read-line has travelled
+    const pct  = Math.max(0, Math.min(1, past / box.height));
+    tl.style.setProperty('--beam', (pct * 100).toFixed(1) + '%');
+
+    const beamPx = pct * box.height;
+    items.forEach(i => {
+      const at = i.getBoundingClientRect().top - box.top;     // dot position within the track
+      i.classList.toggle('lit', beamPx >= at);
+    });
+  };
+  const onScroll = () => { if (!queued) { queued = true; requestAnimationFrame(draw); } };
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll);
+  draw();
+})();
+
+/* ---- projects ---- */
+$('projectList').innerHTML = DATA.projects.map((p, i) => `
+  <article class="proj">
+    <div class="proj-head">
+      <div class="proj-no">${String(i + 1).padStart(2, '0')}</div>
+      <div>
+        <div class="proj-title">${esc(p.title)}</div>
+        <div class="proj-client">${esc(p.client)}</div>
+        <div class="proj-when">${esc(p.duration)}</div>
+      </div>
+    </div>
+    <div class="proj-cols">
+      <div>
+        <div class="col-label">Responsibilities</div>
+        <ul>${p.responsibilities.map(r => `<li>${esc(r)}</li>`).join('')}</ul>
+      </div>
+      <div>
+        <div class="col-label">Key Achievements</div>
+        <ul class="wins">${p.achievements.map(a => `<li>${esc(a)}</li>`).join('')}</ul>
+      </div>
+    </div>
+  </article>`).join('');
+
+/* ---- expertise ---- */
+$('skillGrid').innerHTML = DATA.skills
+  .map(s => `<div class="skill"><i>${icon(s.icon)}</i><span>${esc(s.name)}</span></div>`).join('');
+$('strengthChips').innerHTML = DATA.strengths
+  .map(s => `<span class="chip">${esc(s)}</span>`).join('');
+
+/* ---- process ---- */
+$('processFlow').innerHTML = DATA.process.map((s, i) => `
+  <div class="step">
+    <b>${String(i + 1).padStart(2, '0')}</b>
+    <div class="step-name">${esc(s.name)}</div>
+    <div class="step-note">${esc(s.note)}</div>
+  </div>`).join('');
+
+/* ---- toolkit ---- */
+$('toolGroups').innerHTML = DATA.tools.map(g => `
+  <div class="tool-card">
+    <h3>${esc(g.group)}</h3>
+    <div class="chips">${g.items.map(i => `<span class="chip">${esc(i)}</span>`).join('')}</div>
+  </div>`).join('');
+
+/* ---- testimonials ---- */
+$('quoteList').innerHTML = DATA.testimonials.map(q => `
+  <div class="quote"><p>${esc(q.text)}</p><div class="who">${esc(q.who)}—</div></div>`).join('');
+
+/* ---- contact ---- */
+const CONTACT = [
+  { ico: 'phone', label: 'Phone',   value: DATA.contact.phone,   href: 'tel:' + clean(DATA.contact.phone).replace(/\s/g, '') },
+  { ico: 'mail',  label: 'Email',   value: DATA.contact.email,   href: 'mailto:' + clean(DATA.contact.email) },
+  { ico: 'pin',   label: 'Address', value: DATA.contact.address, href: null }
+];
+$('contactGrid').innerHTML = CONTACT.map(c => {
+  const inner = `<div class="cico">${icon(c.ico, 21)}</div><small>${esc(c.label)}</small><b>${esc(c.value)}</b>`;
+  return c.href
+    ? `<a class="cbox" href="${esc(c.href)}" target="_blank" rel="noopener">${inner}</a>`
+    : `<div class="cbox">${inner}</div>`;
+}).join('');
+
+/* ---- social rows (About page + Contact page) ---- */
+const socialRow = DATA.social.map(s => `
+  <a class="social" href="${esc(s.url)}" target="_blank" rel="noopener">
+    <span class="badge">${brand(s.icon)}</span><span>${esc(s.handle)}</span>
+  </a>`).join('');
+/* WhatsApp link — always the same mobile number as DATA.contact.phone */
+const waDigits = clean(DATA.contact.phone).replace(/\D/g, '');
+const waRow = `
+  <a class="social social-wa" href="https://wa.me/${waDigits}" target="_blank" rel="noopener"
+     aria-label="Chat on WhatsApp — ${esc(DATA.contact.phone)}">
+    <span class="badge badge-wa">${brand('whatsapp')}</span><span>${esc(DATA.contact.phone)}</span>
+  </a>`;
+
+$('socialsCover').innerHTML   = socialRow;
+$('socialsContact').innerHTML = socialRow + waRow;
+$('socialsConnect').innerHTML = socialRow + waRow;
+$('pitchNote').textContent    = DATA.formPitch;
+
+/* ---- contact form ----------------------------------------------
+   No endpoint  → compose the message in the visitor's mail app.
+   With endpoint → POST it so it lands directly in your inbox.      */
+(function contactForm(){
+  const form = $('contactForm'), note = $('formNote'), btn = $('sendBtn');
+  const say = (msg, kind = '') => { note.textContent = msg; note.className = 'form-note ' + kind; };
+
+  /* phone: digits only, 10 max — maxlength alone would still let a
+     paste bring in letters or spaces, so filter on every input */
+  const phone = $('f-phone');
+  phone.addEventListener('input', () => {
+    const only = phone.value.replace(/\D/g, '').slice(0, 10);
+    if (phone.value !== only) phone.value = only;
+  });
+
+  form.addEventListener('submit', async ev => {
+    ev.preventDefault();
+    const f = Object.fromEntries(new FormData(form).entries());
+
+    if (f._gotcha) return;                       // bot filled the hidden trap
+
+    /* every field is required — check each one and name the one that failed */
+    const focus = id => { const el = $(id); el.focus?.(); };
+    if (!f.name.trim())
+      { focus('f-name');  return say('Please add your name.', 'err'); }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim()))
+      { focus('f-email'); return say('Please add a valid email address.', 'err'); }
+    const digits = (f.phone || '').replace(/\D/g, '');
+    if (digits.length !== 10)
+      { focus('f-phone'); return say('Please enter a 10-digit mobile number.', 'err'); }
+    if (!f.message.trim())
+      { focus('f-msg');   return say('Please add a message.', 'err'); }
+
+    /* --- MODE 2: send straight to the inbox --- */
+    if (DATA.formEndpoint) {
+      btn.disabled = true; say('Sending…');
+      try {
+        const payload = {
+          name: f.name, email: f.email, phone: f.phone, message: f.message,
+          subject: `Portfolio enquiry from ${f.name}`
+        };
+        if (DATA.formKey) payload.access_key = DATA.formKey;   // Web3Forms
+        const res = await fetch(DATA.formEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const out = await res.json().catch(() => ({}));
+        if (!res.ok || out.ok === false) throw new Error(out.error || res.status);
+        form.reset();
+        say('Thanks — your message is on its way. I\'ll reply shortly.', 'ok');
+      } catch (err) {
+        const why = /^\d+$/.test(err.message) ? '' : err.message + ' ';
+        say(why + 'Could not send just now — please email ' + DATA.contact.email + ' directly.', 'err');
+      } finally { btn.disabled = false; }
+      return;
+    }
+
+    /* --- MODE 1: hand it to the visitor's mail app --- */
+    const body = [
+      `Name: ${f.name}`,
+      `Email: ${f.email}`,
+      `Phone: ${f.phone}`,
+      '', f.message
+    ].join('\n');
+
+    window.location.href = 'mailto:' + clean(DATA.contact.email)
+      + '?subject=' + encodeURIComponent(`Portfolio enquiry from ${f.name}`)
+      + '&body='    + encodeURIComponent(body);
+
+    say('Opening your email app — press Send there to finish.', 'ok');
+  });
+})();
+
+$('footer').textContent = `© ${new Date().getFullYear()} ${DATA.name} · ${DATA.role} · Chennai, India`;
+
+/* ---- optional local assets: photo.jpg and qr.png (drop them beside this file) ---- */
+(function loadPhoto(){
+  const img = $('photo'), probe = new Image();
+  probe.onload = () => { img.src = probe.src; img.hidden = false; $('initials').remove(); };
+  probe.src = 'photo.jpg';
+})();
+/* ---- sharing: WhatsApp, email, LinkedIn, Telegram, X, copy link ----------
+   Wired into the nav-bar drop-down and the block on the Contact page.       */
+(function share(){
+  /* A file:// path means nothing on someone else's machine, so fall back to
+     the LinkedIn profile until a real site address is configured. */
+  const linkedin = (DATA.social.find(s => s.icon === 'linkedin') || {}).url || '';
+  const URL_ = DATA.siteUrl
+    || (location.protocol === 'file:' ? linkedin : location.href.split('#')[0]);
+  const TEXT = DATA.shareText;
+  const enc  = encodeURIComponent;
+
+  const TARGETS = [
+    { key:'whatsapp', logo:true,  label:'WhatsApp',
+      href:`https://wa.me/?text=${enc(TEXT + ' ' + URL_)}` },
+    { key:'mail',     logo:false, label:'Email',
+      href:`mailto:?subject=${enc(DATA.shareTitle)}&body=${enc(TEXT + '\n\n' + URL_)}` },
+    { key:'linkedin', logo:true,  label:'LinkedIn',
+      href:`https://www.linkedin.com/sharing/share-offsite/?url=${enc(URL_)}` },
+    { key:'telegram', logo:true,  label:'Telegram',
+      href:`https://t.me/share/url?url=${enc(URL_)}&text=${enc(TEXT)}` },
+    { key:'x',        logo:true,  label:'X',
+      href:`https://twitter.com/intent/tweet?text=${enc(TEXT)}&url=${enc(URL_)}` }
+  ];
+  const glyph = t => t.logo ? brand(t.key, 17) : icon(t.key, 18);
+  const open = href => window.open(href, '_blank', 'noopener');
+
+  /* copy to clipboard, with a fallback for browsers that block the API */
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(URL_); return true; }
+    catch (e) {
+      try {
+        const t = document.createElement('textarea');
+        t.value = URL_; t.style.position = 'fixed'; t.style.opacity = '0';
+        document.body.appendChild(t); t.select();
+        const done = document.execCommand('copy');
+        document.body.removeChild(t);
+        return done;
+      } catch (e2) { return false; }
+    }
+  };
+  const flash = (el, html, ms = 1800) => {
+    const was = el.innerHTML;
+    el.innerHTML = html; el.classList.add('done');
+    setTimeout(() => { el.innerHTML = was; el.classList.remove('done'); }, ms);
+  };
+
+  /* ---------- the row on the Contact page ---------- */
+  $('shareRow').innerHTML = TARGETS
+    .map(t => `<button class="share-btn" type="button" data-go="${esc(t.href)}">${glyph(t)}<span>${esc(t.label)}</span></button>`)
+    .join('')
+    + (navigator.share
+        ? `<button class="share-btn" type="button" data-native="1">${icon('share',18)}<span>More…</span></button>`
+        : '');
+
+  $('shareRow').addEventListener('click', ev => {
+    const b = ev.target.closest('button');
+    if (!b) return;
+    if (b.dataset.native) {
+      navigator.share({ title: DATA.shareTitle, text: TEXT, url: URL_ }).catch(() => {});
+    } else open(b.dataset.go);
+  });
+
+  $('shareLink').value = URL_;
+  const copyBtn = $('copyBtn');
+  copyBtn.innerHTML = icon('copy', 16) + '<span>Copy link</span>';
+  copyBtn.onclick = async () => {
+    $('shareLink').select?.();
+    flash(copyBtn, (await copy())
+      ? icon('tick', 16) + '<span>Copied</span>'
+      : icon('copy', 16) + '<span>Press Ctrl+C</span>');
+  };
+
+  /* ---------- the nav-bar drop-down ---------- */
+  const wrap = $('shareWrap'), btn = $('shareBtn'), pop = $('sharePop');
+  $('shareIco').innerHTML = icon('share', 17);
+  pop.innerHTML = TARGETS
+    .map(t => `<button type="button" data-go="${esc(t.href)}">${glyph(t)}<span>${esc(t.label)}</span></button>`)
+    .join('')
+    + '<hr>'
+    + `<button type="button" data-copy="1">${icon('copy',17)}<span>Copy link</span></button>`
+    + (navigator.share ? `<button type="button" data-native="1">${icon('share',17)}<span>More…</span></button>` : '');
+
+  const setOpen = on => { wrap.classList.toggle('open', on); btn.setAttribute('aria-expanded', on ? 'true' : 'false'); };
+  setOpen(false);
+  btn.onclick = ev => { ev.stopPropagation(); setOpen(!wrap.classList.contains('open')); };
+
+  pop.addEventListener('click', async ev => {
+    const b = ev.target.closest('button');
+    if (!b) return;
+    if (b.dataset.copy)        flash(b, (await copy()) ? icon('tick',17) + '<span>Copied</span>'
+                                                       : icon('copy',17) + '<span>Copy failed</span>');
+    else if (b.dataset.native) { navigator.share({ title: DATA.shareTitle, text: TEXT, url: URL_ }).catch(() => {}); setOpen(false); }
+    else { open(b.dataset.go); setOpen(false); }
+  });
+  document.addEventListener('click', () => setOpen(false));
+  document.addEventListener('keydown', ev => { if (ev.key === 'Escape') setOpen(false); });
+})();
+
+/* ---- draw the "Scan here" QR code from DATA.qrData ---- */
+(function drawQR(){
+  const box = $('qr');
+  $('scanSub').textContent = DATA.qrCaption || '';
+  try {
+    box.innerHTML = QR.svg(DATA.qrData);
+    box.title = DATA.qrData;
+  } catch (err) {
+    box.classList.add('empty');
+    box.textContent = 'QR too long';
+    console.warn(err.message);
+  }
+})();
+
+/* ---- hide empty sections, renumber the rest, build the nav ---- */
+const PAGES = [
+  { id:'about',          label:'About',          icon:'users' },
+  { id:'experience',     label:'Experience',     icon:'briefcase' },
+  { id:'projects',       label:'Projects',       icon:'grid' },
+  { id:'skills',         label:'Expertise',      icon:'target' },
+  { id:'process',        label:'Process',        icon:'transfer' },
+  { id:'tools',          label:'Toolkit',        icon:'gear' },
+  { id:'testimonials',   label:'Testimonials',   icon:'quote',  show: DATA.testimonials.length   > 0 },
+  { id:'certifications', label:'Certifications', icon:'shield', show: DATA.certifications.length > 0 },
+  { id:'contact',        label:'Contact',        icon:'phone' },
+  { id:'connect',        label:'Connect',        icon:'mail' }
+];
+const LIVE = PAGES.filter(p => p.show !== false);
+PAGES.forEach(p => { if (p.show === false) $(p.id).style.display = 'none'; });
+
+/* renumber the 01/02/03 badges over the visible sections only */
+let n = 0;
+LIVE.forEach(p => {
+  if (p.id === 'about') return;
+  const badge = $(p.id).querySelector('.sec-no');
+  if (badge) badge.textContent = String(++n).padStart(2, '0');
+});
+
+$('navLinks').innerHTML = LIVE
+  .map(p => `<a href="#${p.id}">${icon(p.icon, 19)}<span>${esc(p.label)}</span></a>`).join('');
+
+/* ---- mobile menu ---- */
+(function mobileMenu(){
+  const bar = document.querySelector('.nav'), btn = $('navToggle');
+  const paint = open => {
+    bar.classList.toggle('open', open);
+    $('menuIco').innerHTML = icon(open ? 'close' : 'menu', 18);
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  };
+  paint(false);
+  btn.addEventListener('click', () => paint(!bar.classList.contains('open')));
+  /* close after picking a page, or on Escape, or once back on a wide screen */
+  /* closest() — a click now lands on the icon or the label, not the <a> itself */
+  $('navLinks').addEventListener('click', ev => { if (ev.target.closest('a')) paint(false); });
+  document.addEventListener('keydown', ev => { if (ev.key === 'Escape') paint(false); });
+  matchMedia('(min-width:1141px)').addEventListener('change', e => { if (e.matches) paint(false); });
+})();
+
+/* ---- home button: jump back to the cover ---- */
+(function homeButton(){
+  const btn = $('homeBtn'), brand = $('navBrand');
+  $('homeIco').innerHTML = icon('home', 18);
+  const toTop = ev => {
+    ev.preventDefault();
+    const smooth = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: 0, behavior: smooth ? 'smooth' : 'auto' });
+  };
+  btn.onclick = toTop;
+  brand.onclick = toTop;
+
+  /* light the button up while the cover is on screen */
+  new IntersectionObserver(
+    entries => entries.forEach(e => btn.classList.toggle('on', e.isIntersecting)),
+    { rootMargin: '-56px 0px -70% 0px' }
+  ).observe($('cover'));
+})();
+
+/* ---- the two downloads: CV (a real file) and Portfolio (this page) -------
+   Each is wired in two places — a round button in the nav bar and a card on
+   the Contact page. Anything without a file falls back to the print dialog. */
+(function downloads(){
+  /* point one link at a file, or at the print dialog when there is no file */
+  const wire = (el, file) => {
+    if (file) { el.href = file; el.setAttribute('download', ''); }
+    else      { el.href = '#'; el.onclick = ev => { ev.preventDefault(); window.print(); }; }
+  };
+
+  /* --- CV --- */
+  const cvFile = DATA.resumePdf;
+  wire($('dlBtn'), cvFile);
+  $('dlTip').textContent = cvFile ? DATA.resumeLabel : 'Save as PDF';
+  $('dlBtn').title = $('dlTip').textContent;
+
+  wire($('cvBox'), cvFile);
+  $('cvIco').innerHTML     = icon('doc', 24);
+  $('cvLabel').textContent = DATA.resumeLabel;
+  $('cvNote').textContent  = cvFile ? DATA.resumeNote
+    : 'No CV file set yet — this opens your print dialog instead.';
+  $('cvGo').innerHTML = icon('download', 15) + `<span>${cvFile ? 'PDF' : 'Print'}</span>`;
+
+  /* --- Portfolio (prints this page unless a fixed PDF is configured) --- */
+  const pfFile = DATA.portfolioPdf;
+  wire($('pfBtn'), pfFile);
+  $('pfIco').innerHTML   = icon(pfFile ? 'download' : 'print', 18);
+  $('pfTip').textContent = DATA.portfolioLabel;
+  $('pfBtn').title = DATA.portfolioLabel;
+
+  wire($('pfBox'), pfFile);
+  $('pfIcoBig').innerHTML  = icon(pfFile ? 'download' : 'print', 24);
+  $('pfLabel').textContent = DATA.portfolioLabel;
+  $('pfNote').textContent  = pfFile ? DATA.portfolioNote
+    : DATA.portfolioNote + ' Opens your print dialog — choose "Save as PDF".';
+  $('pfGo').innerHTML = icon('download', 15) + `<span>${pfFile ? 'PDF' : 'Print'}</span>`;
+})();
+
+/* ---- theme toggle (remembers your choice) ---- */
+(function themeToggle(){
+  const btn = $('themeBtn'), root = document.documentElement;
+  const saved = localStorage.getItem('portfolio-theme');
+  if (saved) root.setAttribute('data-theme', saved);
+
+  const isDark = () => root.getAttribute('data-theme') === 'dark'
+    || (!root.getAttribute('data-theme') && matchMedia('(prefers-color-scheme: dark)').matches);
+
+  const paint = () => {
+    const dark = isDark();
+    $('themeIco').innerHTML  = icon(dark ? 'sun' : 'moon', 17);
+    $('themeTip').textContent = dark ? 'Light mode' : 'Dark mode';
+    btn.title = $('themeTip').textContent;
+  };
+  paint();
+
+  btn.onclick = () => {
+    root.setAttribute('data-theme', isDark() ? 'light' : 'dark');
+    localStorage.setItem('portfolio-theme', root.getAttribute('data-theme'));
+    paint();
+  };
+})();
+
+/* ---- scroll-spy ---- */
+const links = [...document.querySelectorAll('.nav-links a')];
+const spy = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      links.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + e.target.id));
+    }
+  });
+}, { rootMargin: '-80px 0px -55% 0px' });
+LIVE.forEach(p => { const el = $(p.id); if (el) spy.observe(el); });
+</script>
+</body>
+</html>

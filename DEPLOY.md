@@ -36,13 +36,13 @@ Render deploys from a Git repository. The repo is already initialised and commit
 locally, with `.gitignore` set so your Gmail password, `node_modules` and your `.bak`
 backups stay out of it.
 
-1. Go to <https://github.com/new>, create a repository called **portfolio**.
+1. Go to <https://github.com/new>, create a repository called **IT-Portfolio**.
    Leave "Add a README" unticked — this folder already has one.
 2. Back here, push:
 
 ```bash
 cd D:/Sriram/personal/PORTFOLIO
-git remote add origin https://github.com/sriraman1012/portfolio.git
+git remote add origin https://github.com/sriraman1012/IT-Portfolio.git
 git push -u origin main
 ```
 

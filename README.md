@@ -37,7 +37,7 @@ Double-click `index.html`. It opens in any browser.
 | # | Page | What's on it |
 |---|------|--------------|
 | — | **Cover** | "Portfolio" right-aligned on a blue/cyan gradient card, white strip with your name and role |
-| — | **About** | About Me, gradient photo slot, stat tiles (2.8+ yrs · 35+ stores · 6 app types · 2+ rollouts), Education, social icon row |
+| — | **About** | About Me, gradient photo slot, stat tiles (3+ yrs · 35+ stores · 6 app types · 2+ rollouts), Education, social icon row |
 | 01 | **Experience** | Timeline with gradient dots — Uniprotech and ZF |
 | 02 | **Projects** | Five project cards with gradient numerals: PAARRever/KRPL, Revathi Stores, 35+ store POS support, Industrial (WIP/WMS/Asset Tracking/Dispatch), AI-Powered Attendance app |
 | 03 | **Expertise** | 16 skill tiles with gradient icons + Strengths pills |
@@ -389,7 +389,7 @@ beside the labels — glass effects don't read well as a tall list on a phone.
 ## Other features
 
 - **Scroll-spy navigation** — the active page lifts into a raised pill as you scroll.
-- **Holographic stat figures** — 2.8+ / 35+ / 6+ / 2+ are each drawn three times, stacked at
+- **Holographic stat figures** — 3+ / 35+ / 6+ / 2+ are each drawn three times, stacked at
   different depths and slowly wobbling in 3D (adapted from the Uiverse.io holo card by
   *Thomas-Cabrit*). The four cards are staggered so the row doesn't move in unison.
 - **3D focus hover** — point at any card and it lifts toward you while the others in that group
